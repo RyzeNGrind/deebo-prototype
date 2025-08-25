@@ -1,5 +1,5 @@
 {
-  description = "Deebo scenario agent isolation environment";
+  description = "Deebo scenario agent debugging environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

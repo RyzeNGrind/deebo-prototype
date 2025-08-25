@@ -12,6 +12,32 @@
 Deebo is an agentic debugging copilot for your AI coding agent that speeds up time-to-resolution by 10x. If your main coding agent is like a single-threaded process, Deebo introduces multi-threadedness to your development workflow.
 
 As seen on [PulseMCP](https://www.pulsemcp.com/servers/snagasuri-deebo), [@cline on X](https://x.com/cline/status/1915088556852453831), and the [official MCP directory](https://github.com/modelcontextprotocol/servers).
+
+## 🔐 New: Nix-Native Security & Isolation
+
+Deebo now supports **Nix-native sandbox execution** for enhanced security and reproducible debugging environments:
+
+- **Stronger isolation** than Docker using Nix's built-in sandboxing
+- **Reproducible environments** with deterministic tool versions  
+- **Zero-overhead sandboxing** without container runtime dependencies
+- **Declarative configuration** using Nix expressions and flakes
+
+### Quick Start with Nix
+
+```bash
+# Install Nix (if not already installed)
+curl -L https://nixos.org/nix/install | sh
+
+# Clone and run with Nix-native features
+git clone https://github.com/RyzeNGrind/deebo-prototype.git
+cd deebo-prototype
+nix develop
+npm run build
+npm start -- --nix-native
+```
+
+See [NIX_NATIVE.md](./NIX_NATIVE.md) for detailed documentation and [EXAMPLES.md](./EXAMPLES.md) for usage examples.
+
 ## Quick Install (legacy)
 
 ```bash
