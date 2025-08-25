@@ -42,3 +42,10 @@ memory-bank/
 reports/
 cicd-files.txt
 gen-cicd.sh
+
+# Nix build outputs
+result
+result-*
+
+# Temporary files for development
+/tmp/

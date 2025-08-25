@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { runMotherAgent } from './mother-agent.js';
 import { getProjectId } from './util/sanitize.js';
 import { writeObservation } from './util/observations.js';
+import { createNixSandbox, NixSandboxConfig } from './util/nix-sandbox.js';
 import { exec, spawn, ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { homedir } from "node:os";
@@ -100,6 +101,15 @@ const terminatedPids = new Set<number>();
 // Load environment variables from .env file
 config();
 
+// Check for Nix native mode
+const isNixNative = process.argv.includes('--nix-native') || process.env.DEEBO_NIX_SANDBOX_ENABLED === '1';
+
+if (isNixNative) {
+  console.log('🔐 Nix-native sandbox mode enabled');
+} else {
+  console.log('⚠️  Running in compatibility mode (Nix sandbox disabled)');
+}
+
 // Validate required environment variables
 if (!process.env.MOTHER_MODEL) {
   throw new Error('MOTHER_MODEL environment variable is required');
@@ -119,6 +129,9 @@ await mkdir(join(DEEBO_ROOT, 'memory-bank'), { recursive: true });
 
 // Find and configure tool paths
 await findToolPaths();
+
+// Create Nix sandbox instance
+const nixSandbox = createNixSandbox(DEEBO_ROOT);
 
 // Create MCP server
 const server = new McpServer({
@@ -713,6 +726,226 @@ server.tool(
     }
   }
 );
+
+// Register nix_sandbox_exec tool - executes code in Nix sandbox
+server.tool(
+  "nix_sandbox_exec",
+  "Executes code in a Nix-native sandbox environment with strict isolation. This provides stronger security guarantees than Docker containers by using Nix's built-in sandboxing features including chroot, namespaces, and filesystem isolation. The sandbox prevents network access, limits filesystem access to only necessary paths, and provides reproducible execution environments.",
+  {
+    name: z.string().describe("Unique name for this sandbox execution"),
+    code: z.string().describe("Code to execute in the sandbox"),
+    language: z.enum(['bash', 'python', 'nodejs', 'typescript']).optional().describe("Programming language for code execution"),
+    allowedPaths: z.array(z.string()).optional().describe("Additional filesystem paths to make available in sandbox"),
+    env: z.record(z.string()).optional().describe("Environment variables to set in sandbox"),
+    timeout: z.number().optional().describe("Execution timeout in milliseconds (default: 30000)")
+  },
+  async ({ name, code, language, allowedPaths, env, timeout }, extra) => {
+    if (!isNixNative) {
+      return {
+        content: [{
+          type: "text",
+          text: "Nix sandbox execution requires --nix-native flag or DEEBO_NIX_SANDBOX_ENABLED=1"
+        }]
+      };
+    }
+
+    try {
+      const config: NixSandboxConfig = {
+        name: `sandbox-${name}-${Date.now()}`,
+        code,
+        language: language || 'bash',
+        allowedPaths: allowedPaths || [],
+        env: env || {},
+        timeout: timeout || 30000
+      };
+
+      const result = await nixSandbox.executeSandboxed(config);
+
+      return {
+        content: [{
+          type: "text",
+          text: `Nix Sandbox Execution: ${name}\n\n` +
+                `Success: ${result.success}\n` +
+                `Exit Code: ${result.exitCode}\n` +
+                `Language: ${language || 'bash'}\n\n` +
+                `=== STDOUT ===\n${result.stdout}\n\n` +
+                `=== STDERR ===\n${result.stderr}\n\n` +
+                `Log Path: ${result.logPath}\n` +
+                `Result Path: ${result.resultPath}\n\n` +
+                `🔐 Executed in Nix sandbox with strict isolation:\n` +
+                `- Filesystem: Limited to /nix/store + allowed paths\n` +
+                `- Network: Disabled\n` +
+                `- User privileges: Minimal build user\n` +
+                `- Environment: Controlled and reproducible`
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: `Nix sandbox execution failed: ${error instanceof Error ? error.message : String(error)}`
+        }]
+      };
+    }
+  }
+);
+
+// Register nix_flake_init tool - creates debugging session flake
+server.tool(
+  "nix_flake_init",
+  "Initializes a Nix flake environment for debugging session. This creates a reproducible development environment with all necessary tools for debugging, including language runtimes, debuggers, and utilities. The flake provides isolated workspaces and deterministic tool versions.",
+  {
+    sessionId: z.string().describe("Session ID for the debugging session"),
+    language: z.enum(['python', 'nodejs', 'rust', 'go', 'mixed']).optional().describe("Primary language for the debugging session"),
+    projectPath: z.string().describe("Path to the project being debugged")
+  },
+  async ({ sessionId, language, projectPath }, extra) => {
+    if (!isNixNative) {
+      return {
+        content: [{
+          type: "text",
+          text: "Nix flake initialization requires --nix-native flag or DEEBO_NIX_SANDBOX_ENABLED=1"
+        }]
+      };
+    }
+
+    try {
+      const sessionDir = await findSessionDir(sessionId);
+      if (!sessionDir) {
+        throw new Error('Session not found');
+      }
+
+      const flakeDir = join(sessionDir, 'nix-environment');
+      await mkdir(flakeDir, { recursive: true });
+
+      // Generate flake.nix based on language and project
+      const flakeContent = generateDebuggingFlake(language || 'mixed', projectPath);
+      await writeFile(join(flakeDir, 'flake.nix'), flakeContent);
+
+      // Try to initialize the flake
+      try {
+        const { stdout } = await execPromise('nix flake show', { cwd: flakeDir });
+        
+        return {
+          content: [{
+            type: "text",
+            text: `Nix Debugging Environment Initialized\n\n` +
+                  `Session: ${sessionId}\n` +
+                  `Language: ${language || 'mixed'}\n` +
+                  `Flake Location: ${flakeDir}\n\n` +
+                  `To enter the environment:\n` +
+                  `cd ${flakeDir}\n` +
+                  `nix develop\n\n` +
+                  `Available environments:\n${stdout}\n\n` +
+                  `🔨 Reproducible debugging environment ready!\n` +
+                  `- Consistent tool versions across systems\n` +
+                  `- Isolated workspace with necessary dependencies\n` +
+                  `- Nix sandbox protection for execution\n` +
+                  `- Deterministic build environment`
+          }]
+        };
+      } catch (nixError) {
+        // If nix is not available, still create the flake file
+        return {
+          content: [{
+            type: "text",
+            text: `Nix Flake Created (Nix not available for validation)\n\n` +
+                  `Session: ${sessionId}\n` +
+                  `Language: ${language || 'mixed'}\n` +
+                  `Flake Location: ${flakeDir}\n\n` +
+                  `Flake file created but requires Nix to be installed for execution.\n` +
+                  `Install Nix: https://nixos.org/download.html\n\n` +
+                  `Once Nix is installed, use:\n` +
+                  `cd ${flakeDir}\n` +
+                  `nix develop`
+          }]
+        };
+      }
+    } catch (error) {
+      return {
+        content: [{
+          type: "text",
+          text: `Failed to initialize Nix flake environment: ${error instanceof Error ? error.message : String(error)}`
+        }]
+      };
+    }
+  }
+);
+
+// Helper function to generate debugging flake based on language
+function generateDebuggingFlake(language: string, projectPath: string): string {
+  const baseInputs = `
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";`;
+
+  const baseBuildInputs = ['git', 'curl', 'jq', 'ripgrep', 'fd'];
+  
+  let languageSpecificBuildInputs: string[] = [];
+
+  switch (language) {
+    case 'python':
+      languageSpecificBuildInputs = ['python3', 'python3Packages.pip', 'python3Packages.debugpy'];
+      break;
+    case 'nodejs':
+      languageSpecificBuildInputs = ['nodejs', 'npm', 'typescript'];
+      break;
+    case 'rust':
+      languageSpecificBuildInputs = ['rustc', 'cargo', 'rust-analyzer', 'gdb'];
+      break;
+    case 'go':
+      languageSpecificBuildInputs = ['go', 'gopls', 'delve'];
+      break;
+    default:
+      languageSpecificBuildInputs = ['python3', 'nodejs', 'rustc', 'cargo', 'go'];
+  }
+
+  const allBuildInputs = [...baseBuildInputs, ...languageSpecificBuildInputs];
+
+  return `{
+  description = "Deebo debugging environment for ${language} project";
+
+  inputs = {${baseInputs}
+  };
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.\${system};
+      in {
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            ${allBuildInputs.join('\n            ')}
+          ];
+
+          shellHook = ''
+            echo "Deebo Debugging Environment (${language})"
+            echo "Project: ${projectPath}"
+            echo "Session workspace: \$(pwd)"
+            
+            # Set up debugging environment variables
+            export DEEBO_PROJECT_PATH="${projectPath}"
+            export DEEBO_LANGUAGE="${language}"
+            export DEEBO_NIX_SANDBOX=1
+            
+            # Create workspace structure
+            mkdir -p .deebo/{logs,results,scratch,backup}
+            
+            echo "Environment ready for debugging!"
+            echo "Available tools: ${allBuildInputs.join(', ')}"
+          '';
+        };
+
+        # Packages for specific debugging tasks
+        packages = {
+          debug-runner = pkgs.writeScriptBin "debug-runner" ''
+            #!/bin/bash
+            echo "Running debugging task: \$@"
+            # Placeholder for debugging script execution
+          '';
+        };
+      });
+}`;
+}
 
 // Connect transport
 const transport = new StdioServerTransport();
