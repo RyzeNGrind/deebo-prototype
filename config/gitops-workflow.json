@@ -1,0 +1,142 @@
+{
+  "description": "GitOps workflow configuration for deebo-prototype with mcp-utensils and regression testing",
+  "workflow": {
+    "name": "deebo-mcp-gitops",
+    "triggers": ["push", "pull_request", "schedule"],
+    "stages": [
+      {
+        "name": "validation",
+        "description": "Validate flake configuration and syntax",
+        "commands": [
+          "nix flake check --no-build",
+          "nix eval .#mcpServers --json | jq '.'"
+        ],
+        "timeout": 120
+      },
+      {
+        "name": "fast-build",
+        "description": "Fast parallel build with nix-fast-build",
+        "commands": [
+          "nix run .#fast-build"
+        ],
+        "timeout": 300
+      },
+      {
+        "name": "regression-tests", 
+        "description": "Run comprehensive regression tests",
+        "commands": [
+          "nix build .#regressionTests --no-link",
+          "nix run .#fast-test"
+        ],
+        "timeout": 600
+      },
+      {
+        "name": "self-referential-tests",
+        "description": "Validate self-referential flake tests",
+        "commands": [
+          "nix build .#selfRefTests --no-link"
+        ],
+        "timeout": 300
+      },
+      {
+        "name": "mcp-utensils-integration",
+        "description": "Test mcp-utensils NixOS integration",
+        "commands": [
+          "nix eval .#mcpUtensils --json | jq '.'",
+          "nix build .#mcpUtensils --no-link"
+        ],
+        "timeout": 180
+      },
+      {
+        "name": "template-validation",
+        "description": "Validate flake templates",
+        "commands": [
+          "nix build .#checks.template-validation --no-link"
+        ],
+        "timeout": 240
+      }
+    ]
+  },
+  "mcpUtensils": {
+    "integration": "github:utensils/mcp-nixos",
+    "nixosModule": {
+      "services.mcp-servers.deebo-prototype": {
+        "enable": true,
+        "description": "Deebo prototype MCP server with Nix integration",
+        "command": "deebo",
+        "args": ["--nix-native"],
+        "environment": {
+          "DEEBO_NIX_SANDBOX_ENABLED": "1",
+          "NODE_ENV": "production"
+        },
+        "user": "mcp-deebo",
+        "group": "mcp-servers"
+      }
+    },
+    "homeManagerModule": {
+      "programs.mcp-clients.claude.servers.deebo-prototype": {
+        "enable": true,
+        "command": "nix run github:RyzeNGrind/deebo-prototype#deebo",
+        "args": ["--nix-native"],
+        "env": {
+          "DEEBO_NIX_SANDBOX_ENABLED": "1"
+        }
+      }
+    }
+  },
+  "regressionTesting": {
+    "framework": "github:NixOS/flake-regressions",
+    "testSuites": [
+      "mcp-server-basic",
+      "nix-sandbox-basic", 
+      "shell-deps-mapping",
+      "flake-template-generation"
+    ],
+    "baseline": {
+      "git": "main",
+      "description": "Main branch baseline for regression testing"
+    },
+    "tolerance": {
+      "performance": "10%",
+      "memory": "5%"
+    }
+  },
+  "selfReferentialTests": {
+    "description": "Tests that validate the flake can build and test itself",
+    "reference": "github:koraa/test-selfreferential-flake",
+    "tests": [
+      "self-build",
+      "template-instantiation",
+      "mcp-config-generation",
+      "output-validation"
+    ]
+  },
+  "nixFastBuild": {
+    "integration": "github:Mic92/nix-fast-build", 
+    "options": {
+      "parallelBuilds": true,
+      "skipCached": true,
+      "useNom": false,
+      "maxJobs": "auto"
+    },
+    "targets": [
+      ".#deebo-prototype",
+      ".#regressionTests", 
+      ".#selfRefTests",
+      ".#checks"
+    ]
+  },
+  "cicd": {
+    "githubActions": {
+      "workflow": ".github/workflows/nix-gitops.yml",
+      "matrix": {
+        "os": ["ubuntu-latest", "macos-latest"],
+        "nixVersion": ["stable", "unstable"]
+      }
+    },
+    "cachix": {
+      "cache": "deebo-prototype",
+      "authToken": "${{ secrets.CACHIX_AUTH_TOKEN }}"
+    }
+  }
+}

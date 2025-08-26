@@ -1,5 +1,5 @@
 {
-  "description": "Nix-native MCP server configuration using mcp-servers-nix framework",
+  "description": "Nix-native MCP server configuration using mcp-servers-nix framework with mcp-utensils integration",
   "mcpServers": {
     "deebo-nix": {
       "command": "nix",
@@ -39,6 +39,101 @@
       "timeout": 30
     }
   },
+  "mcpUtensils": {
+    "framework": "github:utensils/mcp-nixos",
+    "description": "Integration with mcp-utensils for NixOS-based MCP server management",
+    "nixosModule": {
+      "services.mcp-servers.deebo-prototype": {
+        "enable": true,
+        "package": "github:RyzeNGrind/deebo-prototype#deebo-prototype",
+        "description": "Deebo prototype MCP server with Nix integration",
+        "command": "deebo",
+        "args": ["--nix-native"],
+        "environment": {
+          "DEEBO_NIX_SANDBOX_ENABLED": "1",
+          "NODE_ENV": "production",
+          "DEEBO_SHELL_DEPS_MAPPED": "1"
+        },
+        "user": "mcp-deebo",
+        "group": "mcp-servers",
+        "serviceConfig": {
+          "Type": "simple",
+          "Restart": "always",
+          "RestartSec": 5
+        }
+      }
+    },
+    "homeManagerModule": {
+      "programs.mcp-clients.claude.servers.deebo-prototype": {
+        "enable": true,
+        "command": "nix run github:RyzeNGrind/deebo-prototype#deebo",
+        "args": ["--nix-native"],
+        "env": {
+          "DEEBO_NIX_SANDBOX_ENABLED": "1"
+        }
+      }
+    }
+  },
+  "regressionTesting": {
+    "framework": "github:NixOS/flake-regressions",
+    "description": "Regression testing framework for GitOps validation",
+    "testSuites": {
+      "mcp-server-basic": {
+        "description": "Basic MCP server functionality",
+        "timeout": 30,
+        "expectedExitCode": 0
+      },
+      "nix-sandbox-basic": {
+        "description": "Basic Nix sandbox execution",
+        "timeout": 60,
+        "expectedExitCode": 0
+      },
+      "shell-deps-mapping": {
+        "description": "Shell dependencies are properly mapped",
+        "timeout": 30,
+        "expectedExitCode": 0
+      },
+      "flake-template-generation": {
+        "description": "Flake templates can be generated",
+        "timeout": 120,
+        "expectedExitCode": 0
+      }
+    },
+    "baseline": {
+      "git": "main",
+      "description": "Main branch baseline for regression testing"
+    },
+    "tolerance": {
+      "performance": "10%",
+      "memory": "5%"
+    }
+  },
+  "selfReferentialTests": {
+    "framework": "github:koraa/test-selfreferential-flake",
+    "description": "Tests that validate the flake can build and test itself",
+    "tests": {
+      "self-build": "Flake can build itself",
+      "template-instantiation": "Templates can be instantiated",
+      "mcp-config-generation": "MCP configuration is valid",
+      "output-validation": "All outputs are buildable"
+    }
+  },
+  "nixFastBuild": {
+    "framework": "github:Mic92/nix-fast-build",
+    "description": "Fast parallel builds for performance optimization",
+    "options": {
+      "parallelBuilds": true,
+      "skipCached": true,
+      "useNom": false,
+      "maxJobs": "auto"
+    },
+    "targets": [
+      ".#deebo-prototype",
+      ".#regressionTests", 
+      ".#selfRefTests",
+      ".#checks"
+    ]
+  },
   "nixSandboxConfig": {
     "framework": "mcp-servers-nix",
     "shellDependenciesMapped": true,
@@ -54,7 +149,7 @@
       "nodejs", "npm", "python3", "typescript", "rustc", "cargo", "go",
       "gdb", "strace", "ltrace", "valgrind", "ripgrep", "fd", "jq",
       "curl", "wget", "gnumake", "cmake", "pkg-config", "procps", 
-      "util-linux", "shadow", "nix", "nix-tree", "nixpkgs-fmt"
+      "util-linux", "shadow", "nix", "nix-tree", "nixpkgs-fmt", "nix-fast-build"
     ],
     "sandboxOptions": {
       "__noChroot": false,
@@ -79,11 +174,16 @@
   ],
   "nixFeatures": {
     "mcpServersNixIntegration": true,
+    "mcpUtensils": true,
+    "regressionTesting": true,
+    "selfReferentialTests": true,
+    "nixFastBuild": true,
     "shellDependencyMapping": true,
     "sandboxExecution": true,
     "flakeTemplates": true,
     "reproducibleBuilds": true,
     "declarativeEnvironments": true,
-    "isolatedWorkspaces": true
+    "isolatedWorkspaces": true,
+    "gitopsWorkflow": true
   }
 }

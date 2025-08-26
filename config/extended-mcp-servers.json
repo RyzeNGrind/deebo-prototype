@@ -1,0 +1,100 @@
+{
+  "description": "Extended MCP server configuration supporting both local and SSE-based servers",
+  "mcpServers": {
+    "playwright": {
+      "type": "local",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "tools": [],
+      "disabled": false,
+      "timeout": 30
+    },
+    "MCP_Docs": {
+      "type": "sse",
+      "url": "https://gitmcp.io/docs",
+      "tools": [],
+      "disabled": false,
+      "timeout": 30
+    },
+    "Sequential_Thinking": {
+      "type": "sse",
+      "url": "https://mcpstore.co/sse/67f39b2db66f446c3d8ef4d9",
+      "tools": [
+        "sequentialthinking"
+      ],
+      "disabled": false,
+      "timeout": 30
+    },
+    "Brave_Search": {
+      "type": "sse",
+      "url": "https://mcpstore.co/sse/67f1294690965e7bf66c5e93?apikey=BSAc5AzSkYSO1KEaErJGkKzIxy_wHsY",
+      "tools": [
+        "brave_web_search"
+      ],
+      "disabled": false,
+      "timeout": 30
+    },
+    "Fetch": {
+      "type": "sse",
+      "url": "https://mcpstore.co/sse/67f13b99b66f446c3d8bed92",
+      "tools": [
+        "fetch"
+      ],
+      "disabled": false,
+      "timeout": 30
+    },
+    "dev_mcp": {
+      "type": "sse",
+      "url": "https://api.toolrouter.ai/u/699f7140-5399-4db2-a597-55e1a82b43b4/sse",
+      "tools": [
+        "github_search_repositories",
+        "github_get_file_contents",
+        "github_list_commits",
+        "github_list_issues",
+        "github_search_code",
+        "github_search_issues",
+        "github_search_users",
+        "github_get_issue",
+        "vapi_list_assistants",
+        "vapi_get_assistant",
+        "vapi_list_calls",
+        "vapi_get_call",
+        "vapi_list_phone_numbers",
+        "vapi_get_phone_number",
+        "hyperbrowser_list_profiles",
+        "e2b_run_code",
+        "github_create_or_update_file",
+        "github_push_files",
+        "github_fork_repository",
+        "github_create_branch"
+      ],
+      "disabled": false,
+      "timeout": 30
+    }
+  },
+  "serverCapabilities": {
+    "local": {
+      "supportedTransports": ["stdio"],
+      "requiresInstallation": true,
+      "canProvideTools": true,
+      "canProvideResources": true,
+      "canProvidePrompts": true
+    },
+    "sse": {
+      "supportedTransports": ["sse"],
+      "requiresInstallation": false,
+      "canProvideTools": true,
+      "canProvideResources": true,
+      "canProvidePrompts": true,
+      "requiresNetwork": true
+    }
+  },
+  "validationSettings": {
+    "enableHealthChecks": true,
+    "maxRetries": 3,
+    "healthCheckInterval": 60000,
+    "connectionTimeout": 15000
+  }
+}
