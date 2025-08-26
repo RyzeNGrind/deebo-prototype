@@ -1,5 +1,5 @@
 {
-  "description": "Nix-native MCP server configuration for deebo-prototype",
+  "description": "Nix-native MCP server configuration using mcp-servers-nix framework",
   "mcpServers": {
     "deebo-nix": {
       "command": "nix",
@@ -12,6 +12,7 @@
       "env": {
         "NODE_ENV": "production",
         "DEEBO_NIX_SANDBOX_ENABLED": "1",
+        "DEEBO_SHELL_DEPS_MAPPED": "1",
         "NIX_CONFIG": "sandbox = true"
       },
       "transportType": "stdio",
@@ -29,7 +30,8 @@
       ],
       "env": {
         "NODE_ENV": "production",
-        "DEEBO_NIX_SANDBOX_ENABLED": "0"
+        "DEEBO_NIX_SANDBOX_ENABLED": "0",
+        "DEEBO_SHELL_DEPS_MAPPED": "0"
       },
       "transportType": "stdio",
       "disabled": true,
@@ -38,6 +40,8 @@
     }
   },
   "nixSandboxConfig": {
+    "framework": "mcp-servers-nix",
+    "shellDependenciesMapped": true,
     "defaultLanguage": "bash",
     "defaultTimeout": 30000,
     "allowedSystemFeatures": ["sandbox"],
@@ -45,6 +49,13 @@
     "allowNetworkAccess": false,
     "maxExecutionTime": 300,
     "enableCaching": true,
+    "shellDependencies": [
+      "bash", "coreutils", "findutils", "gnugrep", "gnused", "git",
+      "nodejs", "npm", "python3", "typescript", "rustc", "cargo", "go",
+      "gdb", "strace", "ltrace", "valgrind", "ripgrep", "fd", "jq",
+      "curl", "wget", "gnumake", "cmake", "pkg-config", "procps", 
+      "util-linux", "shadow", "nix", "nix-tree", "nixpkgs-fmt"
+    ],
     "sandboxOptions": {
       "__noChroot": false,
       "allowSubstitutes": false,
@@ -67,6 +78,8 @@
     "go"
   ],
   "nixFeatures": {
+    "mcpServersNixIntegration": true,
+    "shellDependencyMapping": true,
     "sandboxExecution": true,
     "flakeTemplates": true,
     "reproducibleBuilds": true,

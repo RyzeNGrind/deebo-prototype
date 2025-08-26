@@ -18,13 +18,18 @@ export class NixSandboxExecutor {
     }
     async checkNixAvailability() {
         try {
-            await execPromise('nix --version');
+            // Check if nix is available in the mapped shell dependencies
+            const nixPath = process.env.DEEBO_SHELL_DEPS_PATH
+                ? `${process.env.DEEBO_SHELL_DEPS_PATH}/nix`
+                : 'nix';
+            await execPromise(`${nixPath} --version`);
             this.isNixAvailable = true;
-            console.log('Nix sandbox mode enabled');
+            console.log('Nix sandbox mode enabled with mapped shell dependencies');
+            console.log('Shell deps path:', process.env.DEEBO_SHELL_DEPS_PATH || 'system PATH');
         }
         catch (error) {
             this.isNixAvailable = false;
-            console.warn('Nix not available, falling back to standard execution');
+            console.warn('Nix not available in mapped shell dependencies, falling back to standard execution');
         }
     }
     /**
@@ -41,10 +46,22 @@ export class NixSandboxExecutor {
         const nixExprPath = join(sessionDir, 'execution.nix');
         await writeFile(nixExprPath, nixExpr);
         try {
-            // Execute with Nix sandbox
-            const { stdout, stderr } = await execPromise(`nix-build ${nixExprPath} --no-out-link --option sandbox true`, {
+            // Use mapped shell dependencies for nix-build execution
+            const nixBuildPath = process.env.DEEBO_SHELL_DEPS_PATH
+                ? `${process.env.DEEBO_SHELL_DEPS_PATH}/nix-build`
+                : 'nix-build';
+            const buildEnv = {
+                ...process.env,
+                // Ensure all mapped shell dependencies are available during execution
+                PATH: process.env.DEEBO_SHELL_DEPS_PATH
+                    ? `${process.env.DEEBO_SHELL_DEPS_PATH}:${process.env.PATH}`
+                    : process.env.PATH
+            };
+            // Execute with Nix sandbox using mapped dependencies
+            const { stdout, stderr } = await execPromise(`${nixBuildPath} ${nixExprPath} --no-out-link --option sandbox true`, {
                 timeout: config.timeout || 30000,
-                cwd: sessionDir
+                cwd: sessionDir,
+                env: buildEnv
             });
             const resultPath = stdout.trim();
             const logContent = await this.readSandboxLogs(resultPath);
@@ -81,11 +98,17 @@ export class NixSandboxExecutor {
 { pkgs ? import <nixpkgs> {} }:
 
 pkgs.runCommand "git-sandbox" {
-  buildInputs = with pkgs; [ git ];
+  buildInputs = with pkgs; [ git bash coreutils findutils gnugrep gnused ];
   __noChroot = false;
   allowSubstitutes = false;
+  
+  # Ensure mapped shell dependencies are available
+  PATH = "${process.env.DEEBO_SHELL_DEPS_PATH || ''}";
 } ''
   mkdir -p $out/logs
+  
+  # Ensure mapped shell dependencies are in PATH
+  export PATH="${process.env.DEEBO_SHELL_DEPS_PATH || ''}:$PATH"
   
   # Copy repository to sandbox (read-only)
   cp -r ${repoPath} ./repo
@@ -103,7 +126,19 @@ pkgs.runCommand "git-sandbox" {
         const nixExprPath = join(sessionDir, 'git-execution.nix');
         await writeFile(nixExprPath, nixExpr);
         try {
-            const { stdout, stderr } = await execPromise(`nix-build ${nixExprPath} --no-out-link --option sandbox true`, { cwd: sessionDir });
+            const nixBuildPath = process.env.DEEBO_SHELL_DEPS_PATH
+                ? `${process.env.DEEBO_SHELL_DEPS_PATH}/nix-build`
+                : 'nix-build';
+            const buildEnv = {
+                ...process.env,
+                PATH: process.env.DEEBO_SHELL_DEPS_PATH
+                    ? `${process.env.DEEBO_SHELL_DEPS_PATH}:${process.env.PATH}`
+                    : process.env.PATH
+            };
+            const { stdout, stderr } = await execPromise(`${nixBuildPath} ${nixExprPath} --no-out-link --option sandbox true`, {
+                cwd: sessionDir,
+                env: buildEnv
+            });
             const resultPath = stdout.trim();
             const logContent = await this.readSandboxLogs(resultPath);
             return {
@@ -142,11 +177,17 @@ pkgs.runCommand "git-sandbox" {
 { pkgs ? import <nixpkgs> {} }:
 
 pkgs.runCommand "tool-sandbox" {
-  buildInputs = with pkgs; [ ${tool} ];
+  buildInputs = with pkgs; [ ${tool} bash coreutils findutils gnugrep gnused ];
   __noChroot = false;
   allowSubstitutes = false;
+  
+  # Ensure mapped shell dependencies are available
+  PATH = "${process.env.DEEBO_SHELL_DEPS_PATH || ''}";
 } ''
   mkdir -p $out/logs $out/results
+  
+  # Ensure mapped shell dependencies are in PATH
+  export PATH="${process.env.DEEBO_SHELL_DEPS_PATH || ''}:$PATH"
   
   ${envVars}
   
@@ -156,7 +197,19 @@ pkgs.runCommand "tool-sandbox" {
         const nixExprPath = join(sessionDir, 'tool-execution.nix');
         await writeFile(nixExprPath, nixExpr);
         try {
-            const { stdout, stderr } = await execPromise(`nix-build ${nixExprPath} --no-out-link --option sandbox true`, { cwd: sessionDir });
+            const nixBuildPath = process.env.DEEBO_SHELL_DEPS_PATH
+                ? `${process.env.DEEBO_SHELL_DEPS_PATH}/nix-build`
+                : 'nix-build';
+            const buildEnv = {
+                ...process.env,
+                PATH: process.env.DEEBO_SHELL_DEPS_PATH
+                    ? `${process.env.DEEBO_SHELL_DEPS_PATH}:${process.env.PATH}`
+                    : process.env.PATH
+            };
+            const { stdout, stderr } = await execPromise(`${nixBuildPath} ${nixExprPath} --no-out-link --option sandbox true`, {
+                cwd: sessionDir,
+                env: buildEnv
+            });
             const resultPath = stdout.trim();
             const logContent = await this.readSandboxLogs(resultPath);
             const exitCodeFile = join(resultPath, 'results', 'exit_code');
@@ -199,14 +252,21 @@ pkgs.runCommand "${config.name}" {
   buildInputs = with pkgs; [ ${buildInputs.join(' ')} ];
   __noChroot = false;
   allowSubstitutes = false;
+  
+  # Ensure all mapped shell dependencies are available in PATH
+  PATH = "${process.env.DEEBO_SHELL_DEPS_PATH || ''}";
+  
   ${config.env ? Object.entries(config.env).map(([k, v]) => `${k} = "${v}";`).join('\n  ') : ''}
 } ''
   mkdir -p $out/logs $out/results
   
+  # Ensure mapped shell dependencies are in PATH during execution
+  export PATH="${process.env.DEEBO_SHELL_DEPS_PATH || ''}:$PATH"
+  
   # Create isolated environment
   ${allowedPaths.map(path => `ln -s ${path} ./`).join('\n  ')}
   
-  # Execute code in restricted environment
+  # Execute code in restricted environment with all dependencies available
   ${execution}
   
   # Capture exit code
@@ -217,15 +277,21 @@ pkgs.runCommand "${config.name}" {
 ''`;
     }
     getBuildInputsForLanguage(language) {
+        // Use comprehensive dependency mapping as requested
+        const baseDeps = ['bash', 'coreutils', 'findutils', 'gnugrep', 'gnused', 'git'];
         switch (language) {
             case 'python':
-                return ['bash', 'coreutils', 'python3'];
+                return [...baseDeps, 'python3', 'python3Packages.pip', 'python3Packages.debugpy'];
             case 'nodejs':
-                return ['bash', 'coreutils', 'nodejs'];
+                return [...baseDeps, 'nodejs', 'npm', 'nodePackages.typescript'];
             case 'typescript':
-                return ['bash', 'coreutils', 'nodejs', 'typescript'];
+                return [...baseDeps, 'nodejs', 'npm', 'typescript', 'nodePackages.typescript'];
+            case 'rust':
+                return [...baseDeps, 'rustc', 'cargo', 'gdb'];
+            case 'go':
+                return [...baseDeps, 'go', 'gdb'];
             default:
-                return ['bash', 'coreutils', 'findutils', 'gnugrep', 'gnused'];
+                return [...baseDeps, 'procps', 'util-linux'];
         }
     }
     getExecutionForLanguage(language, code) {
