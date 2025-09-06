@@ -141,17 +141,25 @@
               
               # Execute code in restricted environment with all tools available
               ${if language == "bash" then ''
-                echo '${code}' > script.sh
+                cat > script.sh << 'EOF'
+${code}
+EOF
                 chmod +x script.sh
                 ./script.sh 2>&1 | tee $out/logs/execution.log
               '' else if language == "python" then ''
-                echo '${code}' > script.py
+                cat > script.py << 'EOF'
+${code}
+EOF
                 python3 script.py 2>&1 | tee $out/logs/execution.log
               '' else if language == "nodejs" then ''
-                echo '${code}' > script.js
+                cat > script.js << 'EOF'
+${code}
+EOF
                 node script.js 2>&1 | tee $out/logs/execution.log
               '' else if language == "typescript" then ''
-                echo '${code}' > script.ts
+                cat > script.ts << 'EOF'
+${code}
+EOF
                 tsc script.ts && node script.js 2>&1 | tee $out/logs/execution.log
               '' else ''
                 echo "Unsupported language: ${language}" > $out/logs/error.log
