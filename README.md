@@ -13,12 +13,14 @@ Deebo is an agentic debugging copilot for your AI coding agent that speeds up ti
 
 As seen on [PulseMCP](https://www.pulsemcp.com/servers/snagasuri-deebo), [@cline on X](https://x.com/cline/status/1915088556852453831), and the [official MCP directory](https://github.com/modelcontextprotocol/servers).
 
-## 🔐 New: Nix-Native Security & Isolation
+## 🔐 Nix-Native Security & Isolation
 
-Deebo now supports **Nix-native sandbox execution** for enhanced security and reproducible debugging environments:
+Deebo now supports **Nix-native sandbox execution** with comprehensive shell dependency mapping for enhanced security and reproducible debugging environments:
 
-- **Stronger isolation** than Docker using Nix's built-in sandboxing
-- **Reproducible environments** with deterministic tool versions  
+- **Complete shell dependency mapping** - All 31+ tools mapped via nix-shell (bash, nodejs, python3, gdb, ripgrep, etc.)
+- **mcp-servers-nix framework integration** - Uses natsukium/mcp-servers-nix for NixOS/home-manager compatibility
+- **Stronger isolation** than Docker using Nix's built-in sandboxing with hardened shell quoting  
+- **Reproducible environments** with deterministic tool versions and locked dependencies
 - **Zero-overhead sandboxing** without container runtime dependencies
 - **Declarative configuration** using Nix expressions and flakes
 
@@ -28,13 +30,24 @@ Deebo now supports **Nix-native sandbox execution** for enhanced security and re
 # Install Nix (if not already installed)
 curl -L https://nixos.org/nix/install | sh
 
-# Clone and run with Nix-native features
+# Clone and run with comprehensive Nix-native features
 git clone https://github.com/RyzeNGrind/deebo-prototype.git
 cd deebo-prototype
-nix develop
+nix develop  # Enters shell with all 31+ dependencies mapped
 npm run build
 npm start -- --nix-native
 ```
+
+### Nix Features
+
+- ✅ **Shell Dependencies**: All tools mapped via `nix-shell` (31+ dependencies)
+- ✅ **Framework Integration**: Uses `mcp-servers-nix.lib.mkMcpServers` 
+- ✅ **Security Hardening**: Improved shell quoting, argument escaping, command timeouts
+- ✅ **Development Shell**: `nix develop` provides complete toolchain
+- ✅ **Template System**: Nix flake templates for debugging workflows
+- ✅ **Environment Variables**: `DEEBO_SHELL_DEPS_PATH` exposes mapped dependencies
+
+Run `./validate-flake-syntax.sh` and `./validate-shell-deps-mapping.sh` to verify the implementation.
 
 See [NIX_NATIVE.md](./NIX_NATIVE.md) for detailed documentation and [EXAMPLES.md](./EXAMPLES.md) for usage examples.
 

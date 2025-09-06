@@ -11,6 +11,41 @@ on:
       - fix-ci-env-vars
 
 jobs:
+  nix-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Run basic syntax validation
+        run: |
+          chmod +x validate-flake-syntax.sh
+          ./validate-flake-syntax.sh
+
+      - name: Update flake.lock
+        run: |
+          nix flake update
+
+      - name: Validate flake syntax
+        run: |
+          nix flake check
+
+      - name: Test flake show
+        run: |
+          nix flake show
+
+      - name: Test devShell
+        run: |
+          nix develop --command bash -c "echo 'DevShell works'"
+
   basic-test:
     runs-on: macos-latest
     timeout-minutes: 25
