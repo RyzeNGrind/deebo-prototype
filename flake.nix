@@ -86,7 +86,7 @@
           '';
 
           installPhase = ''
-            mkdir -p $out/bin $out/lib/deebo-prototype
+            mkdir -p "$out/bin" "$out/lib/deebo-prototype"
             cp -r build/* $out/lib/deebo-prototype/
             cp -r node_modules $out/lib/deebo-prototype/
             cp package.json $out/lib/deebo-prototype/
@@ -134,7 +134,7 @@
               PATH = "${pkgs.lib.makeBinPath sandboxDeps}";
             } ''
               # Create isolated environment
-              mkdir -p $out/logs $out/results
+              mkdir -p "$out/logs" "$out/results"
               
               # Ensure PATH includes all mapped dependencies
               export PATH="${pkgs.lib.makeBinPath sandboxDeps}:$PATH"
@@ -168,7 +168,7 @@
               __noChroot = false;
               PATH = "${pkgs.lib.makeBinPath sandboxDeps}";
             } ''
-              mkdir -p $out/logs
+              mkdir -p "$out/logs"
               export PATH="${pkgs.lib.makeBinPath sandboxDeps}:$PATH"
               cd ${repoPath}
               
@@ -186,7 +186,7 @@
             } (let
               envVars = builtins.concatStringsSep "\n" (pkgs.lib.mapAttrsToList (k: v: "export ${k}='${v}'") env);
             in ''
-              mkdir -p $out/logs $out/results
+              mkdir -p "$out/logs" "$out/results"
               export PATH="${pkgs.lib.makeBinPath sandboxDeps}:$PATH"
               ${envVars}
               
