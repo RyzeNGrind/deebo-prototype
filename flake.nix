@@ -136,8 +136,7 @@ EOF
               # Create isolated environment
               mkdir -p "$out/logs" "$out/results"
               
-              # Ensure PATH includes all mapped dependencies
-              export PATH="${pkgs.lib.makeBinPath sandboxDeps}:$PATH"
+              # PATH is already configured via Nix environment variable above
               
               # Execute code in restricted environment with all tools available
               ${if language == "bash" then ''
@@ -177,7 +176,7 @@ EOF
               PATH = "${pkgs.lib.makeBinPath sandboxDeps}";
             } ''
               mkdir -p "$out/logs"
-              export PATH="${pkgs.lib.makeBinPath sandboxDeps}:$PATH"
+              # PATH is already configured via Nix environment variable above
               cd "${repoPath}"
               
               ${builtins.concatStringsSep "\n" (map (cmd: ''
@@ -196,7 +195,7 @@ EOF
               escapedArgs = map pkgs.lib.escapeShellArg args;
             in ''
               mkdir -p "$out/logs" "$out/results"
-              export PATH="${pkgs.lib.makeBinPath sandboxDeps}:$PATH"
+              # PATH is already configured via Nix environment variable above
               ${envVars}
               
               timeout 300 ${pkgs.lib.escapeShellArg tool} ${builtins.concatStringsSep " " escapedArgs} 2>&1 | tee "$out/logs/execution.log"
