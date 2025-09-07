@@ -78,6 +78,40 @@ nix build .#checks.x86_64-linux.pre-commit-flight-check
 ./validate-regression-tests.sh
 ```
 
+### Performance Optimization with nix-fast-build & hyperfine
+
+This flake integrates **nix-fast-build** and **hyperfine** for maximum throughput and performance tracking:
+
+```bash
+# Use nix-fast-build for faster parallel builds (recommended for CI/development)
+nix-fast-build .#default
+nix-fast-build .#checks.x86_64-linux.nixos-mcp-e2e
+
+# Benchmark build performance with hyperfine
+hyperfine 'nix build .#default'
+hyperfine 'nix flake check --no-build'
+
+# Compare performance between different build approaches  
+hyperfine 'nix build .#default' 'nix-fast-build .#default'
+
+# Run comprehensive build performance benchmarking
+nix build .#checks.x86_64-linux.build-performance-suite
+
+# Access performance metrics and CI artifacts
+ls result/results/  # JSON benchmark data, performance reports
+ls result/artifacts/  # CI-ready performance artifacts
+```
+
+**Performance Regression Detection:**
+- ⚡ **5-second threshold alerts** for build performance degradation
+- 📊 **Hyperfine JSON artifacts** for trend analysis and CI integration  
+- 🏃 **Automated benchmarking** in regression tests and pre-commit hooks
+- 📈 **Performance comparison** against previous Git revisions
+- 🚀 **Optimization recommendations** (nix-fast-build, lean builds, etc.)
+
+**CI Performance Artifacts:**
+All performance data is captured as CI artifacts with 14-day retention for investigation, trend analysis, and performance optimization tracking.
+
 ### What Gets Tested
 
 **Output Structure Comparison**
