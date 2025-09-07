@@ -378,8 +378,6 @@ EOF
             
             testScript = ''
               import json
-              import subprocess
-              import time
               
               # Start the VM
               start_all()
@@ -388,112 +386,102 @@ EOF
               # Test 1: Verify deebo binary is available and executable
               print("🔍 Testing binary availability...")
               machine.succeed("which deebo")
-              machine.succeed("test -x /nix/store/*/bin/deebo")
+              machine.succeed("test -x $(which deebo)")
               print("✅ Deebo binary is available and executable")
               
               # Test 2: Start and verify MCP server service
               print("🚀 Starting MCP server service...")
               machine.systemctl("start deebo-mcp-server.service")
               
-              # Wait for service to be active
+              # Wait for service to be active with proper error handling
               machine.wait_for_unit("deebo-mcp-server.service")
               print("✅ MCP server service started successfully")
               
-              # Check service status and logs for debugging
-              print("📋 Checking service status...")
-              status_output = machine.succeed("systemctl status deebo-mcp-server.service || true")
-              print(f"Service status: {status_output}")
+              # Always log service status and logs for debugging
+              print("📋 Service status and logs:")
+              status_output = machine.succeed("systemctl status deebo-mcp-server.service --no-pager || true")
+              print(f"Status: {status_output}")
               
-              # Get recent logs for debugging
-              print("📝 Getting service logs...")
-              log_output = machine.succeed("journalctl -u deebo-mcp-server.service --no-pager -n 20 || true")
-              print(f"Service logs: {log_output}")
+              log_output = machine.succeed("journalctl -u deebo-mcp-server.service --no-pager -n 30 || true")
+              print(f"Logs: {log_output}")
               
-              # Test 3: Verify MCP server responds to direct invocation
-              print("🧪 Testing direct MCP server communication...")
+              # Test 3: Verify deebo binary functionality with proper assertions
+              print("🧪 Testing deebo binary execution...")
               
-              # MCP servers use JSON-RPC 2.0 over stdio - test with direct invocation
-              mcp_init_request = {
+              # Test that deebo can be executed and shows expected behavior
+              help_output = machine.succeed("timeout 10s deebo --help 2>&1")
+              print(f"Help output: {help_output}")
+              
+              # Assert that help output contains expected content
+              assert "Usage:" in help_output or "usage:" in help_output or "MCP" in help_output, f"Help output doesn't contain expected usage information: {help_output}"
+              print("✅ Deebo binary shows proper help information")
+              
+              # Test 4: Verify all critical shell dependencies are available  
+              print("🛠️  Testing shell dependencies availability...")
+              critical_deps = ["node", "npm", "python3", "git", "bash"]
+              
+              for dep in critical_deps:
+                machine.succeed(f"which {dep}")
+                version_output = machine.succeed(f"{dep} --version 2>&1 || echo 'no version'")
+                print(f"✅ {dep} available: {version_output.strip()}")
+              
+              # Test optional dependencies (non-critical)
+              optional_deps = ["rg", "fd", "jq", "gdb", "strace"]
+              for dep in optional_deps:
+                result = machine.succeed(f"which {dep} && echo 'FOUND' || echo 'MISSING'")
+                print(f"Optional dep {dep}: {result.strip()}")
+              
+              # Test 5: MCP JSON-RPC functionality test 
+              print("🔄 Testing MCP JSON-RPC protocol...")
+              
+              # Create a proper JSON-RPC 2.0 initialization request
+              mcp_request = {
                 "jsonrpc": "2.0",
-                "id": 1,
+                "id": 1,  
                 "method": "initialize",
                 "params": {
                   "protocolVersion": "2025-01-25",
-                  "capabilities": {
-                    "roots": {
-                      "listChanged": True
-                    },
-                    "sampling": {}
-                  },
-                  "clientInfo": {
-                    "name": "nixos-test-client",
-                    "version": "1.0.0"
-                  }
+                  "capabilities": {},
+                  "clientInfo": {"name": "test-client", "version": "1.0.0"}
                 }
               }
               
-              init_json = json.dumps(mcp_init_request)
+              request_json = json.dumps(mcp_request)
               
-              # Test direct communication (MCP servers typically use stdio)
-              try:
-                # Properly escape the JSON for shell command
-                escaped_json = init_json.replace('"', '\\"')
-                shell_cmd = f'timeout 15s bash -c "echo \\"{escaped_json}\\" | deebo --stdio 2>&1 | head -1" 2>/dev/null || echo "FAILED"'
-                result = machine.succeed(shell_cmd)
-                
-                print(f"Direct communication result: {result}")
-                
-                if "FAILED" not in result and result.strip():
-                  try:
-                    response = json.loads(result.strip())
-                    if "jsonrpc" in response and response.get("jsonrpc") == "2.0":
-                      print("✅ MCP server responded with valid JSON-RPC response")
-                    else:
-                      print("⚠️  MCP server responded but not with standard JSON-RPC format")
-                  except json.JSONDecodeError:
-                    print("⚠️  MCP server responded but with non-JSON output")
-                else:
-                  print("⚠️  MCP server did not respond or failed to start")
-                
-              except Exception as e:
-                print(f"⚠️  Direct communication test failed: {e}")
+              # Test MCP server stdio communication with timeout and proper error handling
+              mcp_result = machine.succeed(f"""
+                timeout 15s bash -c '
+                  echo {json.dumps(request_json)} | deebo --stdio 2>&1 | head -5
+                ' || echo "MCP_TIMEOUT"
+              """)
               
-              # Test 4: Alternative test - verify the server can at least start and show help/version
-              print("🔧 Testing server basic functionality...")
-              try:
-                help_result = machine.succeed("timeout 10s deebo --help 2>&1 || echo 'NO_HELP'")
-                print(f"Help output: {help_result[:200]}...")
-                
-                if "NO_HELP" not in help_result:
-                  print("✅ MCP server shows help information successfully")
-                else:
-                  print("⚠️  MCP server help command failed")
-                  
-              except Exception as e:
-                print(f"Help test failed: {e}")
+              print(f"MCP communication result: {mcp_result}")
               
-              # Test 5: Verify all shell dependencies are accessible
-              print("🛠️  Testing shell dependencies availability...")
-              deps_to_test = ["node", "npm", "python3", "git", "bash", "rg", "fd", "jq"]
+              # Verify we got some response (even if not perfect JSON-RPC)
+              assert "MCP_TIMEOUT" not in mcp_result, f"MCP server timed out or failed to respond: {mcp_result}"
+              assert len(mcp_result.strip()) > 0, f"MCP server returned empty response: {mcp_result}"
+              print("✅ MCP server responds to JSON-RPC communication")
               
-              for dep in deps_to_test:
-                try:
-                  machine.succeed(f"which {dep}")
-                  print(f"✅ {dep} is available")
-                except:
-                  print(f"⚠️  {dep} is not available")
+              # Test 6: Service health check
+              print("🏥 Final service health check...")
               
-              # Final service status check
-              print("🏁 Final service status check...")
-              final_status = machine.succeed("systemctl is-active deebo-mcp-server.service || echo 'INACTIVE'")
-              print(f"Final service status: {final_status}")
+              # Ensure service is still active after tests
+              machine.succeed("systemctl is-active deebo-mcp-server.service")
               
-              if "active" in final_status:
-                print("✅ MCP server service remains active after tests")
-              else:
-                print("⚠️  MCP server service is not active")
-                
-              print("✅ NixOS MCP e2e integration tests completed")
+              # Check if service can be stopped and restarted
+              machine.systemctl("stop deebo-mcp-server.service")
+              machine.wait_until_succeeds("systemctl is-inactive deebo-mcp-server.service", timeout=10)
+              
+              machine.systemctl("start deebo-mcp-server.service") 
+              machine.wait_for_unit("deebo-mcp-server.service")
+              
+              print("✅ Service stop/start cycle successful")
+              
+              # Final comprehensive status report
+              final_status = machine.succeed("systemctl status deebo-mcp-server.service --no-pager")
+              print(f"Final status report: {final_status}")
+              
+              print("✅ All NixOS MCP e2e integration tests passed successfully!")
             '';
           };
         };
