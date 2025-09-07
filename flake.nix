@@ -187,6 +187,24 @@ EOF
         packages = {
           default = nodeEnv;
           deebo-prototype = nodeEnv;
+          
+          # MCP server configuration using natsukium/mcp-servers-nix framework
+          mcp-config = mcp-servers-nix.lib.mkConfig pkgs {
+            format = "json";
+            fileName = "claude_desktop_config.json";
+            settings.servers = {
+              deebo-nix = {
+                command = "${nodeEnv}/bin/deebo";
+                args = [ "--nix-native" ];
+                env = {
+                  NODE_ENV = "production";
+                  DEEBO_NIX_SANDBOX_ENABLED = "1";
+                  DEEBO_SHELL_DEPS_PATH = "${pkgs.lib.makeBinPath shellDependencies}";
+                  PATH = "${pkgs.lib.makeBinPath shellDependencies}";
+                };
+              };
+            };
+          };
         };
 
         # Development shell with all shell dependencies properly mapped
@@ -217,25 +235,7 @@ EOF
           '';
         };
 
-        # MCP server configuration using mcp-servers-nix framework
-        mcpServers = mcp-servers-nix.lib.mkMcpServers {
-          inherit pkgs;
-          servers = {
-            deebo-nix = {
-              package = nodeEnv;
-              command = "${nodeEnv}/bin/deebo";
-              args = [ "--nix-native" ];
-              env = {
-                NODE_ENV = "production";
-                DEEBO_NIX_SANDBOX_ENABLED = "1";
-                DEEBO_SHELL_DEPS_PATH = "${pkgs.lib.makeBinPath shellDependencies}";
-                PATH = "${pkgs.lib.makeBinPath shellDependencies}";
-              };
-              transportType = "stdio";
-              description = "Nix-native debugging copilot with mapped shell dependencies";
-            };
-          };
-        };
+
 
         # Nix flake templates for debugging workflows
         templates = {

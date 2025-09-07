@@ -41,7 +41,7 @@ npm start -- --nix-native
 ### Nix Features
 
 - ✅ **Shell Dependencies**: All tools mapped via `nix-shell` (31+ dependencies)
-- ✅ **Framework Integration**: Uses `mcp-servers-nix.lib.mkMcpServers` 
+- ✅ **Framework Integration**: Uses `mcp-servers-nix.lib.mkConfig` for standards-compliant MCP server configuration 
 - ✅ **Security Hardening**: Improved shell quoting, argument escaping, command timeouts
 - ✅ **Development Shell**: `nix develop` provides complete toolchain
 - ✅ **Template System**: Nix flake templates for debugging workflows

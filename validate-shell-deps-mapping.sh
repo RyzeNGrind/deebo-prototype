@@ -54,8 +54,8 @@ if ! grep -q "mcp-servers-nix" "$FLAKE_FILE"; then
     exit 1
 fi
 
-if ! grep -q "mkMcpServers" "$FLAKE_FILE"; then
-    echo "❌ Error: mkMcpServers function not used"
+if ! grep -q "mcp-servers-nix.lib.mkConfig" "$FLAKE_FILE"; then
+    echo "❌ Error: mcp-servers-nix.lib.mkConfig function not used"
     exit 1
 fi
 
