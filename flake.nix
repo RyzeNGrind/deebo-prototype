@@ -436,11 +436,10 @@ EOF
               
               # Test direct communication (MCP servers typically use stdio)
               try:
-                result = machine.succeed(f'''
-                  timeout 15s bash -c '
-                    echo "{init_json}" | deebo --stdio 2>&1 | head -1
-                  ' 2>/dev/null || echo "FAILED"
-                ''')
+                # Properly escape the JSON for shell command
+                escaped_json = init_json.replace('"', '\\"')
+                shell_cmd = f'timeout 15s bash -c "echo \\"{escaped_json}\\" | deebo --stdio 2>&1 | head -1" 2>/dev/null || echo "FAILED"'
+                result = machine.succeed(shell_cmd)
                 
                 print(f"Direct communication result: {result}")
                 
