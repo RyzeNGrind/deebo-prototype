@@ -523,7 +523,6 @@ EOF
               networking.useDHCP = false;
               services.udisks2.enable = false;
               documentation.enable = false;
-              sound.enable = false;
               hardware.pulseaudio.enable = false;
               
               # Fast boot configuration with maximum verbosity for debugging/CI traceability
