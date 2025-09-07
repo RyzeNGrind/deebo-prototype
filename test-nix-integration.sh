@@ -3,6 +3,9 @@
 
 set -e
 
+# Enable Nix experimental features
+export NIX_CONFIG="experimental-features = nix-command flakes"
+
 echo "🧪 Testing Nix-Native Deebo-Prototype Features"
 echo "=============================================="
 

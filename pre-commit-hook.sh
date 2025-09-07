@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+# Enable Nix experimental features
+export NIX_CONFIG="experimental-features = nix-command flakes"
+
 echo "🚁 Running Pre-commit Flight Check..."
 
 # Colors for output

@@ -11,6 +11,43 @@ The Nix-native deebo-prototype leverages Nix's built-in sandboxing capabilities 
 - **Declarative configuration** using Nix expressions and flakes
 - **Zero-overhead sandboxing** without container runtime dependencies
 
+## Prerequisites
+
+### Nix Installation and Configuration
+
+Deebo-prototype requires Nix with experimental features enabled. Ensure you have:
+
+1. **Nix installed** (version 2.4+ recommended)
+2. **Experimental features enabled** for `nix-command` and `flakes`
+
+**Enable experimental features (choose one method):**
+
+```bash
+# Method 1: Environment variable (recommended for CI)
+export NIX_CONFIG="experimental-features = nix-command flakes"
+
+# Method 2: Command line flags
+nix --extra-experimental-features nix-command flakes <command>
+
+# Method 3: Nix configuration file (~/.config/nix/nix.conf)
+echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+```
+
+**For CI/CD environments:**
+```yaml
+env:
+  NIX_CONFIG: "experimental-features = nix-command flakes"
+```
+
+### Verification
+
+Test your Nix setup:
+```bash
+nix flake check --no-build  # Should work without errors
+nix build .#default         # Should build successfully
+nix develop                 # Should enter development shell
+```
+
 ## Features
 
 ### 1. Nix Sandbox Execution (`nix_sandbox_exec`)

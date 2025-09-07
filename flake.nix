@@ -362,7 +362,7 @@ EOF
             buildInputs = with pkgs; [ time hyperfine jq bc ];
             preferLocalBuild = true;
           } ''
-            mkdir -p $out/logs $out/results
+            mkdir -p "$out/logs" "$out/results"
             
             # Benchmark core operations with hyperfine for precise measurements
             echo "⚡ Running performance benchmarks with hyperfine..."
@@ -412,26 +412,26 @@ EOF
             buildInputs = with pkgs; [ nix-fast-build hyperfine jq bc git ];
             preferLocalBuild = true;
           } ''
-            mkdir -p $out/{logs,results,artifacts}
+            mkdir -p "$out"/{logs,results,artifacts}
             
             echo "🏗️  Running comprehensive build performance benchmarks..."
             
             # Benchmark flake checking performance
             hyperfine --export-json $out/results/flake_check.json --warmup 1 --runs 5 \
               --preparation 'cd ${./. + ""} && echo "Preparing flake check..."' \
-              'cd ${./. + ""} && nix flake check --no-build 2>/dev/null || true' \
+              'cd ${./. + ""} && nix --extra-experimental-features nix-command flakes flake check --no-build 2>/dev/null || true' \
               2>&1 | tee $out/logs/flake_check.log || echo "Flake check benchmark completed with errors"
               
             # Benchmark package build performance  
             hyperfine --export-json $out/results/package_build.json --warmup 1 --runs 3 \
               --preparation 'cd ${./. + ""} && echo "Preparing package build..."' \
-              'cd ${./. + ""} && timeout 30s nix build .#default --no-link 2>/dev/null || true' \
+              'cd ${./. + ""} && timeout 30s nix --extra-experimental-features nix-command flakes build .#default --no-link 2>/dev/null || true' \
               2>&1 | tee $out/logs/package_build.log || echo "Package build benchmark completed with errors"
             
             # Benchmark devShell instantiation performance
             hyperfine --export-json $out/results/devshell.json --warmup 1 --runs 5 \
               --preparation 'cd ${./. + ""} && echo "Preparing devShell..."' \
-              'cd ${./. + ""} && timeout 20s nix develop .#default --command echo "DevShell ready" 2>/dev/null || true' \
+              'cd ${./. + ""} && timeout 20s nix --extra-experimental-features nix-command flakes develop .#default --command echo "DevShell ready" 2>/dev/null || true' \
               2>&1 | tee $out/logs/devshell.log || echo "DevShell benchmark completed with errors"
 
             # Extract performance metrics (handle potential missing data gracefully)
@@ -602,7 +602,7 @@ EOF
             echo "📊 Comparing flake outputs structure..."
             
             # Extract current outputs
-            nix flake show --json "${self}" > "$out/artifacts/current-outputs.json" 2>/dev/null || echo "{}" > "$out/artifacts/current-outputs.json"
+            nix --extra-experimental-features nix-command flakes flake show --json "${self}" > "$out/artifacts/current-outputs.json" 2>/dev/null || echo "{}" > "$out/artifacts/current-outputs.json"
             
             # Try to extract previous outputs using git if available
             if command -v git >/dev/null 2>&1 && git rev-parse HEAD~1 >/dev/null 2>&1; then
@@ -638,7 +638,7 @@ EOF
             echo "🔨 Testing critical package builds..."
             
             # Build current packages
-            if nix build "${self}#default" --out-link "$out/artifacts/current-package" 2>&1 | tee "$out/logs/current-build.log"; then
+            if nix --extra-experimental-features nix-command flakes build "${self}#default" --out-link "$out/artifacts/current-package" 2>&1 | tee "$out/logs/current-build.log"; then
               echo "✅ Current package build successful"
             else
               echo "❌ Current package build failed"
@@ -649,7 +649,7 @@ EOF
             echo "🐚 Validating development shell environments..."
             
             # Test current devShell
-            if nix develop "${self}#default" --command bash -c "
+            if nix --extra-experimental-features nix-command flakes develop "${self}#default" --command bash -c "
               echo 'Testing current devShell environment...'
               node --version
               bash --version
@@ -679,7 +679,7 @@ EOF
             echo "🔍 Running comprehensive flake validation..."
             
             # Run flake check on current version
-            if nix flake check "${self}" --no-build 2>&1 | tee "$out/logs/current-flake-check.log"; then
+            if nix --extra-experimental-features nix-command flakes flake check "${self}" --no-build 2>&1 | tee "$out/logs/current-flake-check.log"; then
               echo "✅ Current flake check passed"
             else
               echo "❌ Current flake check failed"
@@ -693,7 +693,7 @@ EOF
             echo "🏃 Benchmarking current flake performance..."
             hyperfine --export-json "$out/artifacts/current-performance.json" --warmup 1 --runs 3 \
               --preparation 'echo "Preparing flake check benchmark..."' \
-              "nix flake check ${self} --no-build" \
+              "nix --extra-experimental-features nix-command flakes flake check ${self} --no-build" \
               2>&1 | tee "$out/logs/current-performance.log" || {
               echo "⚠️  Performance benchmark completed with errors but continuing..."
               echo '{"results": [{"median": "N/A"}]}' > "$out/artifacts/current-performance.json"
@@ -717,7 +717,7 @@ EOF
             if [ -f "$prev_dir/flake.nix" ] 2>/dev/null; then
               echo "📊 Comparing performance against previous revision..."
               hyperfine --export-json "$out/artifacts/previous-performance.json" --warmup 1 --runs 3 \
-                "cd $prev_dir && nix flake check . --no-build" \
+                "cd $prev_dir && nix --extra-experimental-features nix-command flakes flake check . --no-build" \
                 2>&1 | tee "$out/logs/previous-performance.log" || {
                 echo "⚠️  Previous revision benchmark failed - using current as baseline"
                 cp "$out/artifacts/current-performance.json" "$out/artifacts/previous-performance.json"
@@ -805,7 +805,7 @@ REPORT_EOF
             
             # Flight Check 1: Critical syntax validation
             echo "1️⃣ Syntax validation..."
-            if nix flake check --no-build "${self}" 2>&1 | tee "$out/logs/syntax-check.log"; then
+            if nix --extra-experimental-features nix-command flakes flake check --no-build "${self}" 2>&1 | tee "$out/logs/syntax-check.log"; then
               echo "✅ Syntax validation passed"
             else
               echo "❌ FLIGHT CHECK FAILED: Syntax errors detected"
@@ -814,7 +814,7 @@ REPORT_EOF
             
             # Flight Check 2: Essential builds
             echo "2️⃣ Essential build validation..."
-            if nix build "${self}#default" --out-link "$out/artifacts/flight-package" 2>&1 | tee "$out/logs/build-check.log"; then
+            if nix --extra-experimental-features nix-command flakes build "${self}#default" --out-link "$out/artifacts/flight-package" 2>&1 | tee "$out/logs/build-check.log"; then
               echo "✅ Essential builds passed"
             else
               echo "❌ FLIGHT CHECK FAILED: Build errors detected"
@@ -823,7 +823,7 @@ REPORT_EOF
             
             # Flight Check 3: DevShell integrity
             echo "3️⃣ DevShell integrity check..."
-            if nix develop "${self}#default" --command bash -c "
+            if nix --extra-experimental-features nix-command flakes develop "${self}#default" --command bash -c "
               node --version && bash --version && git --version && echo 'DevShell OK'
             " 2>&1 | tee "$out/logs/devshell-check.log"; then
               echo "✅ DevShell integrity passed"
@@ -839,7 +839,7 @@ REPORT_EOF
             echo "🏃 Running hyperfine performance benchmark..."
             hyperfine --export-json "$out/artifacts/flight-performance.json" --warmup 1 --runs 3 \
               --preparation 'echo "Pre-commit performance check..."' \
-              "nix flake check ${self} --no-build" \
+              "nix --extra-experimental-features nix-command flakes flake check ${self} --no-build" \
               2>&1 | tee "$out/logs/performance-check.log" || {
               echo "⚠️  Performance benchmark completed with errors - continuing flight check"
               echo '{"results": [{"median": 4.9}]}' > "$out/artifacts/flight-performance.json"
