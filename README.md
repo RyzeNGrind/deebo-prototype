@@ -49,6 +49,109 @@ npm start -- --nix-native
 
 Run `./validate-flake-syntax.sh` and `./validate-shell-deps-mapping.sh` to verify the implementation.
 
+## 🛡️ Regression Testing & Change Safety
+
+Deebo includes a comprehensive self-referential regression testing suite to prevent undetected breakage and ensure change safety through automated validation:
+
+### Regression Prevention Architecture
+
+- **🔄 Self-referential testing** - Compares current flake against `HEAD~1` to detect breaking changes
+- **🚁 Pre-commit flight checks** - Validates all critical systems before allowing commits  
+- **📊 Comprehensive change detection** - Monitors flake outputs, package builds, devShell integrity
+- **⚡ Performance regression detection** - Prevents optimization degradation over time
+- **📋 Artifact generation** - Creates detailed logs and diffs for reviewer transparency
+- **🛡️ Multi-layer validation** - Combines syntax, build, functional, and performance checks
+
+### Usage
+
+```bash
+# Run comprehensive regression tests
+nix build .#checks.x86_64-linux.regression-tests
+
+# Run pre-commit flight check (recommended before commits)
+nix build .#checks.x86_64-linux.pre-commit-flight-check
+
+# Run pre-commit hook script
+./pre-commit-hook.sh
+
+# Validate regression test infrastructure
+./validate-regression-tests.sh
+```
+
+### What Gets Tested
+
+**Output Structure Comparison**
+- Compares flake output structure between revisions
+- Detects removed/added packages, apps, devShells, checks
+- Generates diff artifacts for review
+
+**Critical Package Build Validation**  
+- Tests package builds against current and previous revisions
+- Detects build regressions and dependency changes
+- Compares package outputs for consistency
+
+**DevShell Environment Validation**
+- Validates development shell environments work correctly
+- Tests essential tools availability and versions
+- Ensures environment variables are properly set
+
+**Template Structure Validation**
+- Verifies flake template integrity and paths
+- Ensures template descriptions and structures are valid
+- Prevents template corruption or missing files
+
+**Performance Regression Detection**
+- Monitors build times and resource usage
+- Alerts on performance degradation (>5s threshold)
+- Tracks optimization effectiveness over time
+
+### Regression Report Generation
+
+Each test run generates comprehensive reports:
+
+```
+regression-artifacts/
+├── regression-report.md          # Comprehensive test summary
+├── logs/                         # Detailed execution logs
+│   ├── current-build.log
+│   ├── previous-build.log  
+│   ├── current-devshell.log
+│   └── current-flake-check.log
+└── artifacts/                    # Comparison artifacts
+    ├── current-outputs.json
+    ├── previous-outputs.json
+    ├── outputs-diff.txt
+    └── package-diff.txt
+```
+
+### CI Integration
+
+The regression testing suite is fully integrated with GitHub Actions:
+
+- **Automatic execution** on all pull requests and commits
+- **Artifact preservation** - 14 days retention for investigation
+- **Early failure detection** - Prevents broken changes from merging
+- **Performance monitoring** - Tracks optimization regressions over time
+
+### Pre-commit Hook Integration
+
+Install the pre-commit hook for local validation:
+
+```bash
+# Install hook (run once)
+ln -sf ../../pre-commit-hook.sh .git/hooks/pre-commit
+
+# Hook will automatically run on every commit and validate:
+# ✅ Basic flake syntax and structure
+# ✅ Regression test infrastructure integrity
+# ✅ Shell dependencies mapping
+# ✅ Performance optimizations
+# ✅ Nix flake comprehensive checks
+# ✅ Build and functional validation
+```
+
+This comprehensive approach prevents hallucination-induced changes and ensures every commit maintains system integrity while providing full transparency through detailed artifacts and logging.
+
 See [NIX_NATIVE.md](./NIX_NATIVE.md) for detailed documentation and [EXAMPLES.md](./EXAMPLES.md) for usage examples.
 
 ## Quick Install (legacy)

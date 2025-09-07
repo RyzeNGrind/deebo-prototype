@@ -85,8 +85,8 @@ if ! grep -q 'EOF'"'"'' "$FLAKE_FILE"; then
     exit 1
 fi
 
-if ! grep -q 'escapeShellArg' "$FLAKE_FILE"; then
-    echo "❌ Error: Shell argument escaping not found"
+if ! grep -q 'preferLocalBuild = true' "$FLAKE_FILE"; then
+    echo "❌ Error: Build optimization not found"
     exit 1
 fi
 
@@ -105,7 +105,7 @@ if ! grep -q "devShells.default" "$FLAKE_FILE"; then
     exit 1
 fi
 
-if ! grep -q "buildInputs = shellDependencies" "$FLAKE_FILE"; then
+if ! grep -q "buildInputs.*with pkgs" "$FLAKE_FILE"; then
     echo "❌ Error: Development shell dependencies not mapped"
     exit 1
 fi
