@@ -12,7 +12,20 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, mcp-servers-nix }:
-    flake-utils.lib.eachDefaultSystem (system:
+    {
+      # Templates are system-independent and must be at top level
+      templates = {
+        debug-session = {
+          path = ./templates/debug-session;
+          description = "Template for creating isolated debugging sessions with Nix";
+        };
+        
+        scenario-agent = {
+          path = ./templates/scenario-agent;
+          description = "Template for scenario agent environments";
+        };
+      };
+    } // flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
         
@@ -236,19 +249,6 @@ EOF
         };
 
 
-
-        # Nix flake templates for debugging workflows
-        templates = {
-          debug-session = {
-            path = ./templates/debug-session;
-            description = "Template for creating isolated debugging sessions with Nix";
-          };
-          
-          scenario-agent = {
-            path = ./templates/scenario-agent;
-            description = "Template for scenario agent environments";
-          };
-        };
 
         # Apps for direct execution
         apps = {
