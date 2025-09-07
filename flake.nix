@@ -103,115 +103,91 @@ EOF
         };
 
         # Nix-native sandbox execution utilities with all dependencies mapped
-        nixSandboxUtils = pkgs.writeText "nix-sandbox-utils.nix" ''
-          { pkgs ? import <nixpkgs> {} }:
-
-          let
-            # Ensure all shell dependencies are available in sandbox environments
-            sandboxDeps = with pkgs; [
-              bash coreutils findutils gnugrep gnused git
-              nodejs npm python3 typescript rustc cargo go
-              gdb strace ltrace valgrind ripgrep fd jq curl wget
-              gnumake cmake pkg-config procps util-linux shadow
-            ];
-          in
-
-          rec {
-            # Execute code in Nix sandbox with complete dependency mapping
-            sandboxExec = { name, code, language ? "bash", allowedPaths ? [] }: pkgs.runCommand name {
-              buildInputs = sandboxDeps ++ (
-                if language == "python" then [ pkgs.python3Packages.pip pkgs.python3Packages.debugpy ]
-                else if language == "nodejs" then [ pkgs.nodePackages.npm ]
-                else if language == "typescript" then [ pkgs.nodePackages.typescript ]
-                else []
-              );
-              
-              # Restrict network access and filesystem access
-              __noChroot = false;
-              allowSubstitutes = false;
-              
-              # Ensure all shell dependencies are in PATH
-              PATH = "${pkgs.lib.makeBinPath sandboxDeps}";
-            } ''
-              # Create isolated environment
-              mkdir -p "$out/logs" "$out/results"
-              
-              # PATH is already configured via Nix environment variable above
-              
-              # Execute code in restricted environment with all tools available
-              ${if language == "bash" then ''
-                cat > script.sh << 'EOF'
+        # Execute code in Nix sandbox with complete dependency mapping
+        sandboxExec = { name, code, language ? "bash", allowedPaths ? [] }: pkgs.runCommand name {
+          buildInputs = shellDependencies ++ (
+            if language == "python" then [ pkgs.python3Packages.pip pkgs.python3Packages.debugpy ]
+            else if language == "nodejs" then [ pkgs.nodePackages.npm ]
+            else if language == "typescript" then [ pkgs.nodePackages.typescript ]
+            else []
+          );
+          
+          # Restrict network access and filesystem access
+          __noChroot = false;
+          allowSubstitutes = false;
+          
+          # Ensure all shell dependencies are in PATH
+          PATH = "${pkgs.lib.makeBinPath shellDependencies}";
+        } ''
+          # Create isolated environment
+          mkdir -p "$out/logs" "$out/results"
+          
+          # Execute code in restricted environment with all tools available
+          ${if language == "bash" then ''
+            cat > script.sh << 'EOF'
 ${code}
 EOF
-                chmod +x script.sh
-                timeout 300 ./script.sh 2>&1 | tee "$out/logs/execution.log"
-              '' else if language == "python" then ''
-                cat > script.py << 'EOF'
+            chmod +x script.sh
+            timeout 300 ./script.sh 2>&1 | tee "$out/logs/execution.log"
+          '' else if language == "python" then ''
+            cat > script.py << 'EOF'
 ${code}
 EOF
-                timeout 300 python3 script.py 2>&1 | tee "$out/logs/execution.log"
-              '' else if language == "nodejs" then ''
-                cat > script.js << 'EOF'
+            timeout 300 python3 script.py 2>&1 | tee "$out/logs/execution.log"
+          '' else if language == "nodejs" then ''
+            cat > script.js << 'EOF'
 ${code}
 EOF
-                timeout 300 node script.js 2>&1 | tee "$out/logs/execution.log"
-              '' else if language == "typescript" then ''
-                cat > script.ts << 'EOF'
+            timeout 300 node script.js 2>&1 | tee "$out/logs/execution.log"
+          '' else if language == "typescript" then ''
+            cat > script.ts << 'EOF'
 ${code}
 EOF
-                tsc script.ts && timeout 300 node script.js 2>&1 | tee "$out/logs/execution.log"
-              '' else ''
-                echo "Unsupported language: ${language}" > "$out/logs/error.log"
-                exit 1
-              ''}
-              
-              # Capture exit code
-              echo $? > $out/results/exit_code
-            '';
-
-            # Git operations in sandbox with all dependencies mapped
-            gitSandboxExec = { repoPath, commands }: pkgs.runCommand "git-sandbox" {
-              buildInputs = sandboxDeps;
-              __noChroot = false;
-              PATH = "${pkgs.lib.makeBinPath sandboxDeps}";
-            } ''
-              mkdir -p "$out/logs"
-              # PATH is already configured via Nix environment variable above
-              cd "${repoPath}"
-              
-              ${builtins.concatStringsSep "\n" (map (cmd: ''
-                echo "Executing: ${pkgs.lib.escapeShellArg cmd}" | tee -a "$out/logs/git.log"
-                ${cmd} 2>&1 | tee -a "$out/logs/git.log"
-              '') commands)}
-            '';
-
-            # Tool execution with complete dependency mapping
-            toolExec = { tool, args ? [], env ? {} }: pkgs.runCommand "tool-exec" {
-              buildInputs = sandboxDeps;
-              __noChroot = false;
-              PATH = "${pkgs.lib.makeBinPath sandboxDeps}";
-            } (let
-              envVars = builtins.concatStringsSep "\n" (pkgs.lib.mapAttrsToList (k: v: "export ${pkgs.lib.escapeShellArg k}=${pkgs.lib.escapeShellArg v}") env);
-              escapedArgs = map pkgs.lib.escapeShellArg args;
-            in ''
-              mkdir -p "$out/logs" "$out/results"
-              # PATH is already configured via Nix environment variable above
-              ${envVars}
-              
-              timeout 300 ${pkgs.lib.escapeShellArg tool} ${builtins.concatStringsSep " " escapedArgs} 2>&1 | tee "$out/logs/execution.log"
-              echo $? > "$out/results/exit_code"
-            '');
-          }
+            tsc script.ts && timeout 300 node script.js 2>&1 | tee "$out/logs/execution.log"
+          '' else ''
+            echo "Unsupported language: ${language}" > "$out/logs/error.log"
+            exit 1
+          ''}
+          
+          # Capture exit code
+          echo $? > $out/results/exit_code
         '';
+
+        # Git operations in sandbox with all dependencies mapped
+        gitSandboxExec = { repoPath, commands }: pkgs.runCommand "git-sandbox" {
+          buildInputs = shellDependencies;
+          __noChroot = false;
+          PATH = "${pkgs.lib.makeBinPath shellDependencies}";
+        } ''
+          mkdir -p "$out/logs"
+          cd "${repoPath}"
+          
+          ${builtins.concatStringsSep "\n" (map (cmd: ''
+            echo "Executing: ${pkgs.lib.escapeShellArg cmd}" | tee -a "$out/logs/git.log"
+            ${cmd} 2>&1 | tee -a "$out/logs/git.log"
+          '') commands)}
+        '';
+
+        # Tool execution with complete dependency mapping
+        toolExec = { tool, args ? [], env ? {} }: pkgs.runCommand "tool-exec" {
+          buildInputs = shellDependencies;
+          __noChroot = false;
+          PATH = "${pkgs.lib.makeBinPath shellDependencies}";
+        } (let
+          envVars = builtins.concatStringsSep "\n" (pkgs.lib.mapAttrsToList (k: v: "export ${pkgs.lib.escapeShellArg k}=${pkgs.lib.escapeShellArg v}") env);
+          escapedArgs = map pkgs.lib.escapeShellArg args;
+        in ''
+          mkdir -p "$out/logs" "$out/results"
+          ${envVars}
+          
+          timeout 300 ${pkgs.lib.escapeShellArg tool} ${builtins.concatStringsSep " " escapedArgs} 2>&1 | tee "$out/logs/execution.log"
+          echo $? > "$out/results/exit_code"
+        '');
 
       in {
         packages = {
           default = nodeEnv;
           deebo-prototype = nodeEnv;
-          nix-sandbox-utils = pkgs.writeTextFile {
-            name = "nix-sandbox-utils";
-            text = builtins.readFile nixSandboxUtils;
-          };
         };
 
         # Development shell with all shell dependencies properly mapped
@@ -235,7 +211,6 @@ EOF
             
             # Set up environment for Nix sandbox features with mapped dependencies
             export DEEBO_NIX_SANDBOX_ENABLED=1
-            export DEEBO_NIX_UTILS_PATH=${nixSandboxUtils}
             export DEEBO_SHELL_DEPS_PATH="${pkgs.lib.makeBinPath shellDependencies}"
             
             # Ensure all dependencies are in PATH
