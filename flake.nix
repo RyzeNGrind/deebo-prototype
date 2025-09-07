@@ -90,10 +90,10 @@
           # Provide all shell dependencies
           nativeBuildInputs = shellDependencies;
           
-          buildPhase = ''
-            # Use existing pre-built files
-            echo "Using existing TypeScript build"
-          '';
+          # Explicitly disable CMake and other build systems since this is a Node.js project
+          dontUseCmakeConfigure = true;
+          dontConfigure = true;
+          dontBuild = true;
 
           installPhase = ''
             mkdir -p "$out/bin" "$out/lib/deebo-prototype"
