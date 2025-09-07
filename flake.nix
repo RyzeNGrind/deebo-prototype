@@ -27,8 +27,7 @@
           git
           
           # Language runtimes and tools
-          nodejs
-          npm
+          nodejs  # npm is included with nodejs in modern nixpkgs
           python3
           python3Packages.pip
           python3Packages.debugpy
@@ -107,8 +106,8 @@ EOF
         sandboxExec = { name, code, language ? "bash", allowedPaths ? [] }: pkgs.runCommand name {
           buildInputs = shellDependencies ++ (
             if language == "python" then [ pkgs.python3Packages.pip pkgs.python3Packages.debugpy ]
-            else if language == "nodejs" then [ pkgs.nodePackages.npm ]
-            else if language == "typescript" then [ pkgs.nodePackages.typescript ]
+            else if language == "nodejs" then [ ] # npm is included with nodejs
+            else if language == "typescript" then [ ] # typescript is already in shellDependencies
             else []
           );
           
@@ -198,7 +197,7 @@ EOF
             echo "Deebo-Prototype Nix Development Environment"
             echo "All shell dependencies mapped via nix-shell:"
             echo "  Core: bash, coreutils, git, findutils, gnugrep, gnused"
-            echo "  Languages: nodejs, npm, python3, typescript, rust, go"  
+            echo "  Languages: nodejs (includes npm), python3, typescript, rust, go"  
             echo "  Debug tools: gdb, strace, valgrind, ripgrep, fd"
             echo "  Build tools: make, cmake, pkg-config"
             echo "  Nix tools: nix, nix-tree, nixpkgs-fmt"

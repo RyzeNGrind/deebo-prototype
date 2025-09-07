@@ -343,9 +343,9 @@ pkgs.runCommand "${config.name}" {
       case 'python':
         return [...baseDeps, 'python3', 'python3Packages.pip', 'python3Packages.debugpy'];
       case 'nodejs':
-        return [...baseDeps, 'nodejs', 'npm', 'nodePackages.typescript'];
+        return [...baseDeps, 'nodejs']; // npm is included with nodejs in modern nixpkgs
       case 'typescript':
-        return [...baseDeps, 'nodejs', 'npm', 'typescript', 'nodePackages.typescript'];
+        return [...baseDeps, 'nodejs', 'typescript']; // npm included with nodejs, typescript as separate package
       case 'rust':
         return [...baseDeps, 'rustc', 'cargo', 'gdb'];
       case 'go':

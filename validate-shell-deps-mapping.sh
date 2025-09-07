@@ -20,7 +20,7 @@ fi
 # Expected shell dependencies from our implementation
 EXPECTED_SHELL_DEPS=(
   "bash" "coreutils" "findutils" "gnugrep" "gnused" "git"
-  "nodejs" "npm" "python3" "typescript" "rustc" "cargo" "go"
+  "nodejs" "python3" "typescript" "rustc" "cargo" "go"
   "gdb" "strace" "ltrace" "valgrind" "ripgrep" "fd" "jq"
   "curl" "wget" "gnumake" "cmake" "pkg-config" "procps"
   "util-linux" "shadow" "nix" "nix-tree" "nixpkgs-fmt"

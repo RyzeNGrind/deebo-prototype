@@ -31,7 +31,7 @@ echo "=== Testing Nix Expression Generation ==="
 echo "✓ Testing buildInputs mapping for different languages:"
 
 echo "  Python buildInputs: bash coreutils findutils gnugrep gnused git python3 python3Packages.pip python3Packages.debugpy"
-echo "  Node.js buildInputs: bash coreutils findutils gnugrep gnused git nodejs npm nodePackages.typescript"
+echo "  Node.js buildInputs: bash coreutils findutils gnugrep gnused git nodejs (npm included)"
 echo "  Rust buildInputs: bash coreutils findutils gnugrep gnused git rustc cargo gdb"
 echo "  Go buildInputs: bash coreutils findutils gnugrep gnused git go gdb"
 
