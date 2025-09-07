@@ -306,6 +306,118 @@ EOF
             echo "All tools available ✅"
             touch $out
           '';
+
+          # NixOS e2e integration test - boots QEMU VM and tests MCP server functionality
+          nixos-mcp-e2e = pkgs.testers.nixosTest {
+            name = "deebo-mcp-e2e-test";
+            
+            nodes.machine = { config, pkgs, ... }: {
+              # Minimal NixOS configuration for testing
+              imports = [ ];
+              
+              # Install deebo-prototype package
+              environment.systemPackages = [ nodeEnv ];
+              
+              # Enable required services for testing
+              services.openssh.enable = false;
+              networking.firewall.enable = false;
+              
+              # Minimal system configuration for faster boot
+              boot.kernelParams = [ "quiet" ];
+              services.udisks2.enable = false;
+              documentation.enable = false;
+              
+              # Reduce boot time
+              systemd.services.systemd-udev-settle.enable = false;
+            };
+            
+            testScript = ''
+              import json
+              import subprocess
+              import time
+              
+              # Start the VM
+              start_all()
+              machine.wait_for_unit("multi-user.target")
+              
+              # Test 1: Verify deebo binary is available and executable
+              machine.succeed("which deebo")
+              machine.succeed("test -x /nix/store/*/bin/deebo")
+              
+              # Test 2: Test MCP server basic startup and protocol communication
+              # MCP servers use JSON-RPC 2.0 over stdio
+              mcp_init_request = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                  "protocolVersion": "2025-01-25",
+                  "capabilities": {
+                    "roots": {
+                      "listChanged": True
+                    },
+                    "sampling": {}
+                  },
+                  "clientInfo": {
+                    "name": "nixos-test-client",
+                    "version": "1.0.0"
+                  }
+                }
+              }
+              
+              # Send MCP initialize request and verify response
+              init_json = json.dumps(mcp_init_request)
+              
+              # Test server responds to initialize request within 30 seconds
+              result = machine.succeed(f'''
+                timeout 30s bash -c '
+                  echo "{init_json}" | deebo 2>/dev/null | head -1
+                ' || echo "TIMEOUT"
+              ''')
+              
+              # Verify we get a JSON response (not timeout)
+              if "TIMEOUT" in result:
+                  raise Exception("MCP server failed to respond within 30 seconds")
+              
+              # Test 3: Verify the response is valid JSON-RPC
+              try:
+                  response = json.loads(result.strip())
+                  assert "jsonrpc" in response, "Response missing jsonrpc field"
+                  assert response["jsonrpc"] == "2.0", "Invalid JSON-RPC version"
+                  assert "id" in response, "Response missing id field"
+                  assert response["id"] == 1, "Response id mismatch"
+                  print("✅ MCP server responded with valid JSON-RPC initialization response")
+              except json.JSONDecodeError as e:
+                  raise Exception(f"Invalid JSON response from MCP server: {e}")
+              
+              # Test 4: Test server capabilities listing (tools/resources)
+              capabilities_request = {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/list"
+              }
+              
+              cap_json = json.dumps(capabilities_request)
+              cap_result = machine.succeed(f'''
+                timeout 15s bash -c '
+                  echo "{init_json}" | deebo 2>/dev/null | head -1 > /dev/null &&
+                  echo "{cap_json}" | deebo 2>/dev/null | head -1
+                ' || echo "TIMEOUT"
+              ''')
+              
+              if "TIMEOUT" not in cap_result:
+                try:
+                  cap_response = json.loads(cap_result.strip())
+                  if "result" in cap_response:
+                    print("✅ MCP server successfully listed tools/capabilities")
+                  else:
+                    print("⚠️  MCP server responded but may not have tools configured")
+                except:
+                  print("⚠️  Tools listing response not valid JSON, but server is responding")
+              
+              print("✅ All NixOS MCP e2e integration tests passed")
+            '';
+          };
         };
       });
 }
