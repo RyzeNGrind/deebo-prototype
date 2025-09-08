@@ -412,12 +412,12 @@ EOF
             buildInputs = with pkgs; [ nix-fast-build hyperfine jq bc git ];
             preferLocalBuild = true;
             # Set NIX_CONFIG to avoid profile issues in sandboxed environment
-            NIX_CONFIG = "experimental-features = nix-command flakes\nuse-registries = false\nprefs-dir = $TMPDIR";
+            NIX_CONFIG = "experimental-features = nix-command flakes\nuse-registries = false";
           } ''
             mkdir -p "$out"/{logs,results,artifacts}
             
             # Set environment variables to avoid profile creation issues
-            export NIX_CONFIG="experimental-features = nix-command flakes"$'\n'"use-registries = false"$'\n'"prefs-dir = $TMPDIR"
+            export NIX_CONFIG="experimental-features = nix-command flakes"$'\n'"use-registries = false"
             export HOME="$TMPDIR"
             
             echo "🏗️  Running comprehensive build performance benchmarks..."
@@ -600,12 +600,12 @@ EOF
             preferLocalBuild = true;
             allowSubstitutes = false;
             # Set NIX_CONFIG to avoid profile issues in sandboxed environment
-            NIX_CONFIG = "experimental-features = nix-command flakes\nuse-registries = false\nprefs-dir = $TMPDIR";
+            NIX_CONFIG = "experimental-features = nix-command flakes\nuse-registries = false";
           } ''
             mkdir -p "$out/logs" "$out/artifacts"
             
             # Set environment variables to avoid profile creation issues
-            export NIX_CONFIG="experimental-features = nix-command flakes"$'\n'"use-registries = false"$'\n'"prefs-dir = $TMPDIR"
+            export NIX_CONFIG="experimental-features = nix-command flakes"$'\n'"use-registries = false"
             export HOME="$TMPDIR"
             
             echo "🔄 Running self-referential flake regression tests..."
@@ -613,8 +613,8 @@ EOF
             # Test 1: Output Structure Comparison
             echo "📊 Comparing flake outputs structure..."
             
-            # Extract current outputs
-            nix flake show --json "${self}" > "$out/artifacts/current-outputs.json" 2>/dev/null || echo "{}" > "$out/artifacts/current-outputs.json"
+            # Extract current outputs (use path instead of flake reference for sandbox compatibility)
+            nix flake show --json "path:${self}" > "$out/artifacts/current-outputs.json" 2>/dev/null || echo "{}" > "$out/artifacts/current-outputs.json"
             
             # Try to extract previous outputs using git if available
             if command -v git >/dev/null 2>&1 && git rev-parse HEAD~1 >/dev/null 2>&1; then
@@ -649,8 +649,8 @@ EOF
             # Test 2: Critical Package Build Validation
             echo "🔨 Testing critical package builds..."
             
-            # Build current packages
-            if nix build "${self}#default" --no-link 2>&1 | tee "$out/logs/current-build.log"; then
+            # Build current packages (use path reference for sandbox compatibility)
+            if nix build "path:${self}#default" --no-link 2>&1 | tee "$out/logs/current-build.log"; then
               echo "✅ Current package build successful"
             else
               echo "❌ Current package build failed"
@@ -660,8 +660,8 @@ EOF
             # Test 3: DevShell Environment Validation
             echo "🐚 Validating development shell environments..."
             
-            # Test current devShell
-            if nix develop "${self}#default" --no-profile-lock --command bash -c "
+            # Test current devShell (use path reference for sandbox compatibility)
+            if nix develop "path:${self}#default" --no-profile-lock --command bash -c "
               echo 'Testing current devShell environment...'
               node --version || echo 'Node.js not available'
               bash --version || echo 'Bash not available'
@@ -690,8 +690,8 @@ EOF
             # Test 5: Flake Check Regression Detection
             echo "🔍 Running comprehensive flake validation..."
             
-            # Run flake check on current version
-            if nix flake check "${self}" --no-build 2>&1 | tee "$out/logs/current-flake-check.log"; then
+            # Run flake check on current version (use path reference for sandbox compatibility)
+            if nix flake check "path:${self}" --no-build 2>&1 | tee "$out/logs/current-flake-check.log"; then
               echo "✅ Current flake check passed"
             else
               echo "❌ Current flake check failed"
@@ -705,7 +705,7 @@ EOF
             echo "🏃 Benchmarking current flake performance..."
             hyperfine --export-json "$out/artifacts/current-performance.json" --warmup 1 --runs 3 \
               --preparation 'echo "Preparing flake check benchmark..."' \
-              "nix flake check ${self} --no-build" \
+              "nix flake check path:${self} --no-build" \
               2>&1 | tee "$out/logs/current-performance.log" || {
               echo "⚠️  Performance benchmark completed with errors but continuing..."
               echo '{"results": [{"median": "N/A"}]}' > "$out/artifacts/current-performance.json"
@@ -811,19 +811,19 @@ REPORT_EOF
             preferLocalBuild = true;
             allowSubstitutes = false;
             # Set NIX_CONFIG to avoid profile issues in sandboxed environment
-            NIX_CONFIG = "experimental-features = nix-command flakes\nuse-registries = false\nprefs-dir = $TMPDIR";
+            NIX_CONFIG = "experimental-features = nix-command flakes\nuse-registries = false";
           } ''
             mkdir -p "$out/logs" "$out/artifacts"
             
             # Set environment variables to avoid profile creation issues
-            export NIX_CONFIG="experimental-features = nix-command flakes"$'\n'"use-registries = false"$'\n'"prefs-dir = $TMPDIR"
+            export NIX_CONFIG="experimental-features = nix-command flakes"$'\n'"use-registries = false"
             export HOME="$TMPDIR"
             
             echo "🚁 Running pre-commit flight check..."
             
             # Flight Check 1: Critical syntax validation
             echo "1️⃣ Syntax validation..."
-            if nix flake check --no-build "${self}" 2>&1 | tee "$out/logs/syntax-check.log"; then
+            if nix flake check --no-build "path:${self}" 2>&1 | tee "$out/logs/syntax-check.log"; then
               echo "✅ Syntax validation passed"
             else
               echo "❌ FLIGHT CHECK FAILED: Syntax errors detected"
@@ -832,7 +832,7 @@ REPORT_EOF
             
             # Flight Check 2: Essential builds
             echo "2️⃣ Essential build validation..."
-            if nix build "${self}#default" --no-link 2>&1 | tee "$out/logs/build-check.log"; then
+            if nix build "path:${self}#default" --no-link 2>&1 | tee "$out/logs/build-check.log"; then
               echo "✅ Essential builds passed"
             else
               echo "❌ FLIGHT CHECK FAILED: Build errors detected"
@@ -841,7 +841,7 @@ REPORT_EOF
             
             # Flight Check 3: DevShell integrity
             echo "3️⃣ DevShell integrity check..."
-            if nix develop "${self}#default" --no-profile-lock --command bash -c "
+            if nix develop "path:${self}#default" --no-profile-lock --command bash -c "
               node --version && bash --version && git --version && echo 'DevShell OK'
             " 2>&1 | tee "$out/logs/devshell-check.log"; then
               echo "✅ DevShell integrity passed"
@@ -857,7 +857,7 @@ REPORT_EOF
             echo "🏃 Running hyperfine performance benchmark..."
             hyperfine --export-json "$out/artifacts/flight-performance.json" --warmup 1 --runs 3 \
               --preparation 'echo "Pre-commit performance check..."' \
-              "nix flake check ${self} --no-build" \
+              "nix flake check path:${self} --no-build" \
               2>&1 | tee "$out/logs/performance-check.log" || {
               echo "⚠️  Performance benchmark completed with errors - continuing flight check"
               echo '{"results": [{"median": 4.9}]}' > "$out/artifacts/flight-performance.json"
