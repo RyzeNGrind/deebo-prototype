@@ -845,7 +845,7 @@ PERF_EOF
             current_perf="$duration"
             performance_threshold=1.0  # 1 second threshold for file analysis
             
-            echo "📊 Analysis performance: ${current_perf}s (${flake_lines} lines, complexity: ${complexity})" | tee "$out/logs/current-performance.log"
+            echo "📊 Analysis performance: ''${current_perf}s (''${flake_lines} lines, complexity: ''${complexity})" | tee "$out/logs/current-performance.log"
             performance_threshold=1.0  # 1 second threshold for file analysis
             
             # Performance regression analysis
@@ -1035,7 +1035,7 @@ REPORT_EOF
 }
 FLIGHT_PERF_EOF
             
-            echo "📊 Analysis performance: ${perf_time}s (${lines_count} lines, complexity: ${complexity_count})" | tee "$out/logs/performance-check.log"
+            echo "📊 Analysis performance: ''${perf_time}s (''${lines_count} lines, complexity: ''${complexity_count})" | tee "$out/logs/performance-check.log"
             
             perf_threshold=1.0  # 1 second threshold for file analysis
             
