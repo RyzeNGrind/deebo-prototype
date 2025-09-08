@@ -667,7 +667,7 @@ DEVSHELL_EOF
               
               # Test 3: MCP server startup validation with minimal timeout
               startup_result = machine.succeed("""
-                export MOTHER_MODEL=gpt-4o-mini SCENARIO_MODEL=gpt-4o-mini
+                export MOTHER_MODEL="gpt-4o-mini" SCENARIO_MODEL="gpt-4o-mini"
                 timeout 3s deebo --stdio </dev/null 2>&1 || echo "QUICK_TEST_COMPLETE"
               """)
               
@@ -676,7 +676,7 @@ DEVSHELL_EOF
               
               # Test 4: Fast MCP protocol validation 
               mcp_test = machine.succeed('''
-                export MOTHER_MODEL=gpt-4o-mini SCENARIO_MODEL=gpt-4o-mini
+                export MOTHER_MODEL="gpt-4o-mini" SCENARIO_MODEL="gpt-4o-mini"
                 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-01-25","capabilities":{}}}' | timeout 5s deebo --stdio | head -1 | grep -q "jsonrpc" && echo "MCP_PROTOCOL_OK" || echo "MCP_BASIC_TEST_DONE"
               ''')
               
