@@ -585,7 +585,7 @@ DEVSHELL_EOF
               echo "benchmark_package_analysis_median_s=$package_build_time"
               echo "benchmark_devshell_analysis_median_s=$devshell_time"
               echo "benchmark_timestamp=$(date -Iseconds)"
-              echo "benchmark_commit=$(cd ${self} && git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+              echo "benchmark_commit=static-analysis-build"
               echo "configuration_flake_lines=$flake_lines"
               echo "configuration_outputs=$output_count"
               echo "configuration_inputs=$input_count"
@@ -734,18 +734,15 @@ DEVSHELL_EOF
 }
 OUTPUTS_EOF
             
-            # Try to extract previous outputs using git if available
-            if command -v git >/dev/null 2>&1 && git rev-parse HEAD~1 >/dev/null 2>&1; then
-              echo "ℹ️  Checking previous revision via git..."
-              
-              # Create a temporary directory for previous revision
-              prev_dir=$(mktemp -d)
-              
-              # Get previous revision files
-              git archive HEAD~1 | tar -x -C "$prev_dir" 2>/dev/null || {
-                echo "⚠️  Cannot access previous revision - initial commit or clean state"
-                cp "$out/artifacts/current-outputs.json" "$out/artifacts/previous-outputs.json"
-              }
+            # Skip git operations in sandboxed build environment
+            echo "ℹ️  Git not available or no previous revision - initial state"
+            
+            # Create a temporary directory for comparison baseline
+            prev_dir=$(mktemp -d)
+            
+            # Use current state as baseline for initial builds
+            echo "⚠️  Using current state as baseline - no git access in sandbox"
+            cp "$out/artifacts/current-outputs.json" "$out/artifacts/previous-outputs.json"
               
               if [[ -f "$prev_dir/flake.nix" ]]; then
                 echo "📋 Previous flake.nix found, comparing structure..."
@@ -1001,7 +998,7 @@ PREV_PERF_EOF
 # Flake Regression Test Report
 
 ## Test Summary
-- **Current Revision**: $(git rev-parse HEAD 2>/dev/null || echo "unknown")
+- **Current Revision**: static-analysis-build
 - **Test Date**: $(date -Iseconds)
 - **Environment**: Nix flake regression testing
 
@@ -1159,7 +1156,7 @@ FLIGHT_PERF_EOF
             ================================
             
             Timestamp: $(date -Iseconds)
-            Revision: $(git rev-parse HEAD 2>/dev/null || echo "unknown")
+            Revision: static-analysis-build
             
             ✅ All flight checks passed:
             1. Syntax validation
