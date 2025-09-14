@@ -272,7 +272,7 @@ EOF
             # Test 3: DevShell Environment Validation
             echo "3️⃣ DevShell Environment Validation..."
             devshell_deps='${toString shellDependencies}'
-            if echo "$devshell_deps" | grep -q "nodejs.*python3.*bash"; then
+            if echo "$devshell_deps" | grep -q "nodejs" && echo "$devshell_deps" | grep -q "python3" && echo "$devshell_deps" | grep -q "bash"; then
               echo "  ✅ DevShell environment integrity confirmed"
             else
               echo "❌ REGRESSION DETECTED: DevShell missing critical dependencies"
