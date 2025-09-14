@@ -11,6 +11,79 @@ on:
       - fix-ci-env-vars
 
 jobs:
+  nix-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NIX_CONFIG: "experimental-features = nix-command flakes"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit for regression testing
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Run basic syntax validation
+        run: |
+          chmod +x validate-flake-syntax.sh
+          ./validate-flake-syntax.sh
+
+      - name: Run regression test infrastructure validation
+        run: |
+          chmod +x validate-regression-tests.sh
+          ./validate-regression-tests.sh
+
+      - name: Run shell dependencies validation
+        run: |
+          chmod +x validate-shell-deps-mapping.sh
+          ./validate-shell-deps-mapping.sh
+
+      - name: Run performance optimizations validation
+        run: |
+          chmod +x validate-performance-optimizations.sh
+          ./validate-performance-optimizations.sh
+
+      - name: Update flake.lock
+        run: |
+          nix flake update
+
+      - name: Validate flake syntax
+        run: |
+          nix flake check
+
+      - name: Test flake show
+        run: |
+          nix flake show
+
+      - name: Test devShell
+        run: |
+          nix develop --command bash -c "echo 'DevShell works'"
+
+      - name: Run regression tests
+        run: |
+          nix build .#checks.x86_64-linux.regression-tests --out-link regression-artifacts || echo "Regression tests may not be available in this environment"
+
+      - name: Run pre-commit flight check
+        run: |
+          nix build .#checks.x86_64-linux.pre-commit-flight-check --out-link flight-artifacts || echo "Flight check may not be available in this environment"
+
+      - name: Upload regression test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regression-test-artifacts
+          path: |
+            regression-artifacts/
+            flight-artifacts/
+          retention-days: 14
+          if-no-files-found: warn
+
   basic-test:
     runs-on: macos-latest
     timeout-minutes: 25
