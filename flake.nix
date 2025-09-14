@@ -138,7 +138,7 @@
             '';
             
             installPhase = ''
-              mkdir -p $out/bin
+              mkdir -p "$out/bin"
               # Add your install steps here
             '';
           };
@@ -340,7 +340,7 @@ EOF
             
             echo ""
             echo "🏆 All regression tests completed successfully!"
-            echo "📋 Detailed report available at: $out/regression-report.md"
+            echo "📋 Detailed report available at: "$out/regression-report.md""
           '';
         };
       });
